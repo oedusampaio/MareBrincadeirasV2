@@ -1,0 +1,27 @@
+{
+  "expo": {
+    "name": "Maré Brincadeiras",
+    "slug": "mare-brincadeiras",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#FFBE0B"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#FFBE0B"
+      },
+      "package": "com.marebrincadeiras.app"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.marebrincadeiras.app"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    }
+  }
+}
