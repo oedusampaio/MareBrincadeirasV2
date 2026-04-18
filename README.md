@@ -127,3 +127,5 @@ const loadProducts = async () => {
 ## 📐 Responsividade
 
 O app foi desenvolvido mobile-first com foco em telas 390×844 (iPhone 14/15) mas funciona em qualquer tamanho via StyleSheet responsivo. Não há breakpoints — usa `Dimensions.get('window')` onde necessário.
+=======
+# MareBrincadeirasV2
