@@ -20,12 +20,12 @@ export function Header({ title, navigation, showBack = false, showCart = true, s
           </TouchableOpacity>
         ) : (
           <TouchableOpacity onPress={() => navigation?.navigate('Home')} style={styles.logoContainer}>
-            <Text style={styles.logoText}>🌊 Maré</Text>
-            <Text style={styles.logoSub}> Brincadeiras</Text>
+
+            <Text style={styles.logoText}>🌊 {title ? 'MB' : 'Maré'}</Text>
+            {!title && <Text style={styles.logoSub}> Brincadeiras</Text>}
           </TouchableOpacity>
         )}
       </View>
-
       {title && <Text style={styles.headerTitle}>{title}</Text>}
 
       <View style={styles.headerRight}>
@@ -267,7 +267,7 @@ const styles = StyleSheet.create({
   headerTitle: { flex: 2, textAlign: 'center', fontSize: SIZES.lg, fontWeight: '700', color: COLORS.text },
   logoContainer: { flexDirection: 'row', alignItems: 'center' },
   logoText: { fontSize: 18, fontWeight: '800', color: COLORS.primary },
-  logoSub: { fontSize: 14, fontWeight: '600', color: COLORS.text },
+  logoSub: { fontSize: 14, fontWeight: '800', color: COLORS.text, },
   headerBtn: { padding: 6 },
   cartBtn: { padding: 6, position: 'relative' },
   cartBadge: {
