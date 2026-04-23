@@ -5,6 +5,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { COLORS, SIZES } from '../utils/theme';
 import { useApp } from '../context/AppContext';
+import {
+  QuemSomosScreen,
+  ContatoScreen,
+  PoliticaPrivacidadeScreen,
+} from '../screens/client/InfoScreens';
 
 // ── Client Screens
 import HomeScreen from '../screens/client/HomeScreen';
@@ -111,6 +116,9 @@ export default function AppNavigator() {
       <Stack.Screen name="Finalizar" component={FinalizarScreen} />
       <Stack.Screen name="Pedidos" component={PedidosScreen} />
       <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+      <Stack.Screen name="QuemSomos" component={QuemSomosScreen} />
+      <Stack.Screen name="Contato" component={ContatoScreen} />
+      <Stack.Screen name="PoliticaPrivacidade" component={PoliticaPrivacidadeScreen} />
 
       {/* Admin screens */}
       <Stack.Screen name="AdminDashboard" component={AdminDashboardScreen} />

@@ -196,11 +196,20 @@ export default function HomeScreen({ navigation }) {
         <View style={styles.footer}>
           <Text style={styles.footerLogo}>🌊 Maré Brincadeiras</Text>
           <View style={styles.footerLinks}>
-            {['Produtos', 'Quem Somos', 'Contato', 'Política de Privacidade'].map((l) => (
-              <TouchableOpacity key={l}>
-                <Text style={styles.footerLink}>{l}</Text>
-              </TouchableOpacity>
-            ))}
+          <View style={styles.footerLinks}>
+  <TouchableOpacity onPress={() => (navigation.getParent() ?? navigation).navigate('ProductsTab')}>
+    <Text style={styles.footerLink}>Produtos</Text>
+  </TouchableOpacity>
+  <TouchableOpacity onPress={() => navigation.navigate('QuemSomos')}>
+    <Text style={styles.footerLink}>Quem Somos</Text>
+  </TouchableOpacity>
+  <TouchableOpacity onPress={() => navigation.navigate('Contato')}>
+    <Text style={styles.footerLink}>Contato</Text>
+  </TouchableOpacity>
+  <TouchableOpacity onPress={() => navigation.navigate('PoliticaPrivacidade')}>
+    <Text style={styles.footerLink}>Política de Privacidade</Text>
+  </TouchableOpacity>
+</View>
           </View>
           <Text style={styles.footerCopy}>© 2025 Oceano Encantado - Todos os direitos reservados</Text>
         </View>
