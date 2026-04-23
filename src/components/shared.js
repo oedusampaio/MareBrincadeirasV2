@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { Ionicons, FontAwesome5, MaterialIcons } from '@expo/vector-icons';
 import { COLORS, FONTS, SIZES, SHADOWS } from '../utils/theme';
+import LogoImg from '../assets/logo.png';
 import { useApp } from '../context/AppContext';
 
 // ─── HEADER ────────────────────────────────────────────────────────────────────
@@ -15,15 +16,18 @@ export function Header({ title, navigation, showBack = false, showCart = true, s
     <View style={styles.header}>
       <View style={styles.headerLeft}>
         {showBack ? (
-          <TouchableOpacity onPress={() => navigation?.goBack()} style={styles.headerBtn}>
-            <Ionicons name="arrow-back" size={24} color={COLORS.text} />
-          </TouchableOpacity>
+          // DEPOIS
+<TouchableOpacity onPress={() => navigation?.navigate('Home')} style={styles.logoContainer}>
+  <Image source={LogoImg} style={styles.logoImg} />
+  <Text style={styles.logoText}>{title ? '' : 'Maré'}</Text>
+  {!title && <Text style={styles.logoSub}> Brincadeiras</Text>}
+</TouchableOpacity>
         ) : (
           <TouchableOpacity onPress={() => navigation?.navigate('Home')} style={styles.logoContainer}>
-
-            <Text style={styles.logoText}>🌊 {title ? 'MB' : 'Maré'}</Text>
-            {!title && <Text style={styles.logoSub}> Brincadeiras</Text>}
-          </TouchableOpacity>
+  <Image source={LogoImg} style={styles.logoImg} />
+  <Text style={styles.logoText}>{title ? '' : 'Maré'}</Text>
+  {!title && <Text style={styles.logoSub}> Brincadeiras</Text>}
+</TouchableOpacity>
         )}
       </View>
       {title && <Text style={styles.headerTitle}>{title}</Text>}
@@ -262,6 +266,12 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.secondary, paddingHorizontal: 16, paddingVertical: 12,
     paddingTop: Platform.OS === 'android' ? 40 : 50,
   },
+  logoImg: {
+  width: 50,
+  height: 50,
+  resizeMode: 'contain',
+  marginRight: 4,
+},
   headerLeft: { flex: 1 },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   headerTitle: { flex: 2, textAlign: 'center', fontSize: SIZES.lg, fontWeight: '700', color: COLORS.text },
