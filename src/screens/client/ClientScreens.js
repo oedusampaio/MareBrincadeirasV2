@@ -3,7 +3,7 @@
 // ──────────────────────────────────────────────────────────────────────────────
 import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity, Image, Platform,
+  View, Text, StyleSheet, FlatList, TouchableOpacity, Image, Platform, ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES, SHADOWS } from '../../utils/theme';

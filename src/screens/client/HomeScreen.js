@@ -133,7 +133,7 @@ export default function HomeScreen({ navigation }) {
             )}
             <TouchableOpacity
               style={styles.promoBuyBtn}
-              onPress={() => navigation.navigate('CarrinhoTab')}
+              onPress={() => (navigation.getParent() ?? navigation).navigate('Finalizar')}
             >
               <Text style={styles.promoBuyText}>Compre agora</Text>
             </TouchableOpacity>
