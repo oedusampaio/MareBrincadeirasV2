@@ -2,9 +2,7 @@
 
 E-commerce de brinquedos convertido de Angular para **React Native + Expo**, com suporte mobile-first (390×844).
 
----
-
-## 🚀 Como rodar
+---r
 
 ### Pré-requisitos
 - Node.js 18+
