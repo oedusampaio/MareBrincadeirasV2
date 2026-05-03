@@ -133,20 +133,23 @@ export function LoginScreen({ navigation }) {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (!email || !password) { showToast('Preencha todos os campos!', 'warning'); return; }
     setLoading(true);
-    setTimeout(() => {
-      const result = login(email, password);
-      setLoading(false);
+    try {
+      const result = await login(email, password);
       if (result.success) {
-        showToast(`Bem-vindo(a) de volta! 👋`, 'success');
+        showToast('Bem-vindo(a) de volta! 👋', 'success');
         if (result.isAdmin) navigation.navigate('AdminDashboard');
         else navigation.navigate('HomeTab');
       } else {
         showToast('E-mail ou senha incorretos.', 'error');
       }
-    }, 500);
+    } catch (e) {
+      showToast('Erro ao fazer login. Tente novamente.', 'error');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -383,7 +386,37 @@ export function FinalizarScreen({ navigation }) {
   const pixDiscount = selectedMethod === 'pix' ? cartSubtotal * 0.05 : 0;
   const finalTotal = cartSubtotal - pixDiscount;
 
-  const setAddr = (key) => (val) => setAddress({ ...address, [key]: val });
+  const setAddr = (key) => (val) => setAddress((prev) => ({ ...prev, [key]: val }));
+
+  const [cepLoading, setCepLoading] = useState(false);
+
+  const buscarCep = async (cep) => {
+    const digits = cep.replace(/\D/g, '');
+    const formatted = digits.length > 5 ? digits.slice(0, 5) + '-' + digits.slice(5, 8) : digits;
+    setAddress((prev) => ({ ...prev, cep: formatted }));
+    if (digits.length === 8) {
+      setCepLoading(true);
+      try {
+        const res = await fetch(`https://viacep.com.br/ws/${digits}/json/`);
+        const data = await res.json();
+        if (!data.erro) {
+          setAddress((prev) => ({
+            ...prev,
+            cep: formatted,
+            rua: data.logradouro || '',
+            bairro: data.bairro || '',
+            cidade: data.localidade || '',
+          }));
+        } else {
+          showToast('CEP não encontrado.', 'warning');
+        }
+      } catch {
+        showToast('Erro ao buscar CEP. Verifique sua conexão.', 'warning');
+      } finally {
+        setCepLoading(false);
+      }
+    }
+  };
 
   const validateAddress = () => {
     if (!address.cep || !address.rua || !address.numero || !address.bairro || !address.cidade) {
@@ -588,8 +621,15 @@ export function FinalizarScreen({ navigation }) {
         {step === 1 && (
           <View>
             <Text style={styles.sectionLabel}>Endereço de entrega</Text>
-            <PayInput label="CEP *" value={address.cep} onChangeText={setAddr('cep')} placeholder="00000-000" keyboardType="numeric" maxLength={9} />
-            <PayInput label="Rua *" value={address.rua} onChangeText={setAddr('rua')} placeholder="Nome da rua" />
+            <PayInput
+              label={cepLoading ? 'Buscando CEP...' : 'CEP *'}
+              value={address.cep}
+              onChangeText={buscarCep}
+              placeholder="00000-000"
+              keyboardType="numeric"
+              maxLength={9}
+            />
+            <PayInput label="Rua *" value={address.rua} onChangeText={setAddr('rua')} placeholder="Preenchido automaticamente" editable={!cepLoading} />
             <View style={{ flexDirection: 'row', gap: 12 }}>
               <View style={{ flex: 1 }}>
                 <PayInput label="Número *" value={address.numero} onChangeText={setAddr('numero')} placeholder="123" keyboardType="numeric" />
@@ -598,8 +638,8 @@ export function FinalizarScreen({ navigation }) {
                 <PayInput label="Complemento" value={address.complemento} onChangeText={setAddr('complemento')} placeholder="Apto, bloco..." />
               </View>
             </View>
-            <PayInput label="Bairro *" value={address.bairro} onChangeText={setAddr('bairro')} placeholder="Seu bairro" />
-            <PayInput label="Cidade *" value={address.cidade} onChangeText={setAddr('cidade')} placeholder="Sua cidade" />
+            <PayInput label="Bairro *" value={address.bairro} onChangeText={setAddr('bairro')} placeholder="Preenchido automaticamente" editable={!cepLoading} />
+            <PayInput label="Cidade *" value={address.cidade} onChangeText={setAddr('cidade')} placeholder="Preenchida automaticamente" editable={!cepLoading} />
           </View>
         )}
 

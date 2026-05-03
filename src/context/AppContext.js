@@ -128,9 +128,10 @@ export function AppProvider({ children }) {
       type: 'SET_PRODUCTS',
       payload: produtos.map((p) => ({
         ...p,
+        id: String(p.id), // garante que o id é sempre string, igual ao mockData
         name: p.nome,
         description: p.descricao,
-        categoryId: p.categoria,
+        categoryId: p.categoria, // categoria do banco é o nome (ex: "Lego"), filtro usa nome também
         value: p.preco,
         oldValue: p.preco_antigo,
         discount: p.desconto,

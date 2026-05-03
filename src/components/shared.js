@@ -104,10 +104,10 @@ export function ProductCard({ product, navigation, compact = false }) {
         <Text style={styles.cardName} numberOfLines={2}>{product.name}</Text>
         <View style={styles.priceRow}>
           <Text style={[styles.price, !product.oldValue && { color: COLORS.primary }]}>
-            R$ {product.value.toFixed(2).replace('.', ',')}
+            R$ {(product.value || 0).toFixed(2).replace('.', ',')}
           </Text>
           {product.oldValue && (
-            <Text style={styles.oldPrice}>R$ {product.oldValue.toFixed(2).replace('.', ',')}</Text>
+            <Text style={styles.oldPrice}>R$ {(product.oldValue || 0).toFixed(2).replace('.', ',')}</Text>
           )}
         </View>
         <TouchableOpacity style={styles.addBtn} onPress={addToCart}>
