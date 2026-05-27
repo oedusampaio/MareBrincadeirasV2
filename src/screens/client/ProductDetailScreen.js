@@ -6,36 +6,48 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES, SHADOWS } from '../../utils/theme';
 import { useApp } from '../../context/AppContext';
-import { StarRating, Button } from '../../components/shared';
+import { StarRating, Button, Footer } from '../../components/shared';
+
 
 const { width } = Dimensions.get('window');
 
 export default function ProductDetailScreen({ route, navigation }) {
   const { productId } = route.params;
   const { state, dispatch, showToast } = useApp();
-  const product = state.products.find((p) => p.id === productId);
+  const product = state.products.find((p) => String(p.id) === String(productId));
   const [qty, setQty] = useState(1);
   const [activeImg, setActiveImg] = useState(0);
 
   if (!product) return null;
 
-  const category = require('../../data/mockData').categories.find((c) => c.id === product.categoryId);
+  const category = require('../../data/mockData').categories.find((c) => c.nome === product.categoryId);
   const avgRating = product.feedbacks?.length
     ? product.feedbacks.reduce((s, f) => s + f.rating, 0) / product.feedbacks.length
     : 0;
 
   const addToCart = () => {
-    for (let i = 0; i < qty; i++) {
-      dispatch({
-        type: 'ADD_TO_CART',
-        payload: { productId: product.id, nome: product.name, preco: product.value, imagem: product.image },
-      });
-    }
-    showToast(`${qty}x "${product.name}" adicionado ao carrinho!`);
-  };
+  if (!state.user) {
+    showToast('Faça login para adicionar ao carrinho!', 'warning');
+    navigation.navigate('Login');
+    return;
+  }
+  for (let i = 0; i < qty; i++) {
+    dispatch({
+      type: 'ADD_TO_CART',
+      payload: { productId: product.id, nome: product.name, preco: product.value, imagem: product.image },
+    });
+  }
+  showToast(`${qty}x "${product.name}" adicionado ao carrinho!`);
+};
 
-  const toggleFav = () => dispatch({ type: 'TOGGLE_FAVORITE', payload: product.id });
-
+const toggleFav = () => {
+  if (!state.user) {
+    showToast('Faça login para salvar favoritos!', 'warning');
+    navigation.navigate('Login');
+    return;
+  }
+  dispatch({ type: 'TOGGLE_FAVORITE', payload: product.id });
+};
   return (
     <View style={styles.container}>
       {/* Top Bar */}
@@ -56,8 +68,8 @@ export default function ProductDetailScreen({ route, navigation }) {
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Images */}
         <View style={styles.imgSection}>
-          <Image source={{ uri: product.images[activeImg] || product.image }} style={styles.mainImg} />
-          {product.images.length > 1 && (
+          <Image source={{ uri: (product.images && product.images[activeImg]) || product.image }} style={styles.mainImg} />
+          {product.images && product.images.length > 1 && (
             <View style={styles.thumbRow}>
               {product.images.map((img, i) => (
                 <TouchableOpacity key={i} onPress={() => setActiveImg(i)}>
@@ -95,9 +107,9 @@ export default function ProductDetailScreen({ route, navigation }) {
                 <Text style={styles.discountTagText}>-{product.discount}%</Text>
               </View>
             )}
-            <Text style={styles.price}>R$ {product.value.toFixed(2).replace('.', ',')}</Text>
+            <Text style={styles.price}>R$ {(product.value || 0).toFixed(2).replace('.', ',')}</Text>
             {product.oldValue && (
-              <Text style={styles.oldPrice}>R$ {product.oldValue.toFixed(2).replace('.', ',')}</Text>
+              <Text style={styles.oldPrice}>R$ {(product.oldValue || 0).toFixed(2).replace('.', ',')}</Text>
             )}
           </View>
 
@@ -142,13 +154,14 @@ export default function ProductDetailScreen({ route, navigation }) {
             </>
           )}
         </View>
+        <Footer navigation={navigation} />
       </ScrollView>
 
       {/* Bottom Bar */}
       <View style={styles.bottomBar}>
         <View>
           <Text style={styles.totalLabel}>Total</Text>
-          <Text style={styles.totalVal}>R$ {(product.value * qty).toFixed(2).replace('.', ',')}</Text>
+          <Text style={styles.totalVal}>R$ {((product.value || 0) * qty).toFixed(2).replace('.', ',')}</Text>
         </View>
         <TouchableOpacity style={styles.addCartBtn} onPress={addToCart}>
           <Ionicons name="cart" size={20} color={COLORS.white} />

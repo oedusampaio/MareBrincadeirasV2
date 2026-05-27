@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES, SHADOWS } from '../../utils/theme';
 import { useApp } from '../../context/AppContext';
 import { testimonials } from '../../data/mockData';
+import LogoImg from '../../assets/logo.png';
 import { ProductCard, SectionTitle, Header } from '../../components/shared';
 
 const { width } = Dimensions.get('window');
@@ -160,7 +161,7 @@ export default function HomeScreen({ navigation }) {
             {testimonials.map((t) => (
               <View key={t.id} style={styles.testimonialCard}>
                 <View style={styles.stars}>
-                  {[1,2,3,4,5].map((s) => (
+                  {[1, 2, 3, 4, 5].map((s) => (
                     <Ionicons key={s} name={s <= t.rating ? 'star' : 'star-outline'} size={14} color={COLORS.discount} />
                   ))}
                 </View>
@@ -194,22 +195,25 @@ export default function HomeScreen({ navigation }) {
 
         {/* Footer */}
         <View style={styles.footer}>
-          <Text style={styles.footerLogo}>🌊 Maré Brincadeiras</Text>
+          <View style={styles.footerLogoContainer}>
+            <Image source={LogoImg} style={styles.logoImg} />
+            <Text style={styles.footerLogo}>Maré Brincadeiras</Text>
+          </View>
           <View style={styles.footerLinks}>
-          <View style={styles.footerLinks}>
-  <TouchableOpacity onPress={() => (navigation.getParent() ?? navigation).navigate('ProductsTab')}>
-    <Text style={styles.footerLink}>Produtos</Text>
-  </TouchableOpacity>
-  <TouchableOpacity onPress={() => navigation.navigate('QuemSomos')}>
-    <Text style={styles.footerLink}>Quem Somos</Text>
-  </TouchableOpacity>
-  <TouchableOpacity onPress={() => navigation.navigate('Contato')}>
-    <Text style={styles.footerLink}>Contato</Text>
-  </TouchableOpacity>
-  <TouchableOpacity onPress={() => navigation.navigate('PoliticaPrivacidade')}>
-    <Text style={styles.footerLink}>Política de Privacidade</Text>
-  </TouchableOpacity>
-</View>
+            <View style={styles.footerLinks}>
+              <TouchableOpacity onPress={() => (navigation.getParent() ?? navigation).navigate('ProductsTab')}>
+                <Text style={styles.footerLink}>Produtos</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => navigation.navigate('QuemSomos')}>
+                <Text style={styles.footerLink}>Quem Somos</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => navigation.navigate('Contato')}>
+                <Text style={styles.footerLink}>Contato</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => navigation.navigate('PoliticaPrivacidade')}>
+                <Text style={styles.footerLink}>Política de Privacidade</Text>
+              </TouchableOpacity>
+            </View>
           </View>
           <Text style={styles.footerCopy}>© 2025 Oceano Encantado - Todos os direitos reservados</Text>
         </View>
@@ -295,5 +299,18 @@ const styles = StyleSheet.create({
   footerLogo: { color: COLORS.secondary, fontSize: SIZES.xl, fontWeight: '800', textAlign: 'center' },
   footerLinks: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 16 },
   footerLink: { color: 'rgba(255,255,255,0.7)', fontSize: SIZES.sm },
-  footerCopy: { color: 'rgba(255,255,255,0.4)', fontSize: SIZES.xs, textAlign: 'center' },
+  footerCopy: {
+    color: 'rgba(255,255,255,0.4)', fontSize: SIZES.xs, textAlign: 'center'
+  },
+  logoImg: {
+    width: 50,
+    height: 50,
+    resizeMode: 'contain',
+    marginRight: 4,
+  },
+footerLogoContainer: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'center',
+},
 });

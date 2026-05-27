@@ -36,6 +36,7 @@ import {
   AdminReviewsScreen,
   AdminSalesScreen,
 } from '../screens/admin/AdminScreens';
+import DatabaseDebugScreen from '../screens/admin/DatabaseDebugScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -128,6 +129,7 @@ export default function AppNavigator() {
       <Stack.Screen name="AdminCategories" component={AdminCategoriesScreen} />
       <Stack.Screen name="AdminReviews" component={AdminReviewsScreen} />
       <Stack.Screen name="AdminSales" component={AdminSalesScreen} />
+      <Stack.Screen name="DatabaseDebug" component={DatabaseDebugScreen} />
     </Stack.Navigator>
   );
 }

@@ -17,17 +17,17 @@ export function Header({ title, navigation, showBack = false, showCart = true, s
       <View style={styles.headerLeft}>
         {showBack ? (
           // DEPOIS
-<TouchableOpacity onPress={() => navigation?.navigate('Home')} style={styles.logoContainer}>
-  <Image source={LogoImg} style={styles.logoImg} />
-  <Text style={styles.logoText}>{title ? '' : 'Maré'}</Text>
-  {!title && <Text style={styles.logoSub}> Brincadeiras</Text>}
-</TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation?.navigate('Home')} style={styles.logoContainer}>
+            <Image source={LogoImg} style={styles.logoImg} />
+            <Text style={styles.logoText}>{title ? '' : 'Maré'}</Text>
+            {!title && <Text style={styles.logoSub}> Brincadeiras</Text>}
+          </TouchableOpacity>
         ) : (
           <TouchableOpacity onPress={() => navigation?.navigate('Home')} style={styles.logoContainer}>
-  <Image source={LogoImg} style={styles.logoImg} />
-  <Text style={styles.logoText}>{title ? '' : 'Maré'}</Text>
-  {!title && <Text style={styles.logoSub}> Brincadeiras</Text>}
-</TouchableOpacity>
+            <Image source={LogoImg} style={styles.logoImg} />
+            <Text style={styles.logoText}>{title ? '' : 'Maré'}</Text>
+            {!title && <Text style={styles.logoSub}> Brincadeiras</Text>}
+          </TouchableOpacity>
         )}
       </View>
       {title && <Text style={styles.headerTitle}>{title}</Text>}
@@ -104,10 +104,10 @@ export function ProductCard({ product, navigation, compact = false }) {
         <Text style={styles.cardName} numberOfLines={2}>{product.name}</Text>
         <View style={styles.priceRow}>
           <Text style={[styles.price, !product.oldValue && { color: COLORS.primary }]}>
-            R$ {product.value.toFixed(2).replace('.', ',')}
+            R$ {(product.value || 0).toFixed(2).replace('.', ',')}
           </Text>
           {product.oldValue && (
-            <Text style={styles.oldPrice}>R$ {product.oldValue.toFixed(2).replace('.', ',')}</Text>
+            <Text style={styles.oldPrice}>R$ {(product.oldValue || 0).toFixed(2).replace('.', ',')}</Text>
           )}
         </View>
         <TouchableOpacity style={styles.addBtn} onPress={addToCart}>
@@ -257,6 +257,34 @@ export function BottomTab({ state: navState, descriptors, navigation }) {
     </View>
   );
 }
+//footer
+export function Footer({ navigation }) {
+  return (
+    <View style={styles.footer}>
+      <View style={styles.footerLogoContainer}>
+        <Image source={LogoImg} style={styles.logoImg} />
+        <Text style={styles.footerLogo}>Maré Brincadeiras</Text>
+      </View>
+      <View style={styles.footerLinks}>
+        <View style={styles.footerLinks}>
+          <TouchableOpacity onPress={() => (navigation.getParent() ?? navigation).navigate('ProductsTab')}>
+            <Text style={styles.footerLink}>Produtos</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.navigate('QuemSomos')}>
+            <Text style={styles.footerLink}>Quem Somos</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.navigate('Contato')}>
+            <Text style={styles.footerLink}>Contato</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.navigate('PoliticaPrivacidade')}>
+            <Text style={styles.footerLink}>Política de Privacidade</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+      <Text style={styles.footerCopy}>© 2025 Oceano Encantado - Todos os direitos reservados</Text>
+    </View>
+  );
+}
 
 // ─── STYLES ─────────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
@@ -267,11 +295,11 @@ const styles = StyleSheet.create({
     paddingTop: Platform.OS === 'android' ? 40 : 50,
   },
   logoImg: {
-  width: 50,
-  height: 50,
-  resizeMode: 'contain',
-  marginRight: 4,
-},
+    width: 50,
+    height: 50,
+    resizeMode: 'contain',
+    marginRight: 4,
+  },
   headerLeft: { flex: 1 },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   headerTitle: { flex: 2, textAlign: 'center', fontSize: SIZES.lg, fontWeight: '700', color: COLORS.text },
@@ -379,6 +407,23 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.error, borderRadius: 8,
     width: 16, height: 16, alignItems: 'center', justifyContent: 'center',
   },
-  tabBadgeText: { color: COLORS.white, fontSize: 9, fontWeight: '700' },
-  tabLabel: { fontSize: 10, color: COLORS.textMuted, fontWeight: '500' },
+  // footer
+  footer: { backgroundColor: '#1a1a2e', padding: 24, gap: 16 },
+  footerLogo: { color: COLORS.secondary, fontSize: SIZES.xl, fontWeight: '800', textAlign: 'center' },
+  footerLinks: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 16 },
+  footerLink: { color: 'rgba(255,255,255,0.7)', fontSize: SIZES.sm },
+  footerCopy: {
+    color: 'rgba(255,255,255,0.4)', fontSize: SIZES.xs, textAlign: 'center'
+  },
+  logoImg: {
+    width: 50,
+    height: 50,
+    resizeMode: 'contain',
+    marginRight: 4,
+  },
+footerLogoContainer: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'center',
+},
 });

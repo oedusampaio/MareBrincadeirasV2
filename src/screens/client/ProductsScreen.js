@@ -7,14 +7,17 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES, SHADOWS } from '../../utils/theme';
 import { useApp } from '../../context/AppContext';
 import { categories } from '../../data/mockData';
-import { ProductCard, Header, EmptyState } from '../../components/shared';
+
+// Extrai os nomes únicos das categorias do mockData para uso no filtro
+const CATEGORY_NAMES = categories.map((c) => c.nome);
+import { ProductCard, Header, EmptyState, Footer } from '../../components/shared';
 
 const AGE_RANGES = ['0-1 ano', '1-3 anos', '3-8 anos', '4-10 anos', '4-12 anos', '5+ anos', '8+ anos'];
 
 export default function ProductsScreen({ navigation }) {
   const { state } = useApp();
   const [search, setSearch] = useState('');
-  const [selectedCategories, setSelectedCategories] = useState([]);
+  const [selectedCategories, setSelectedCategories] = useState([]); // armazena nomes das categorias
   const [selectedAges, setSelectedAges] = useState([]);
   const [priceMax, setPriceMax] = useState(500);
   const [showFilters, setShowFilters] = useState(false);
@@ -32,8 +35,8 @@ export default function ProductsScreen({ navigation }) {
     return list;
   }, [state.products, search, selectedCategories, selectedAges, priceMax, sortBy]);
 
-  const toggleCategory = (id) =>
-    setSelectedCategories((prev) => prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]);
+  const toggleCategory = (nome) =>
+    setSelectedCategories((prev) => prev.includes(nome) ? prev.filter((c) => c !== nome) : [...prev, nome]);
   const toggleAge = (age) =>
     setSelectedAges((prev) => prev.includes(age) ? prev.filter((a) => a !== age) : [...prev, age]);
   const clearFilters = () => { setSelectedCategories([]); setSelectedAges([]); setPriceMax(500); setSortBy('default'); };
@@ -88,12 +91,13 @@ export default function ProductsScreen({ navigation }) {
       ) : (
         <FlatList
           data={filtered}
-          keyExtractor={(i) => i.id}
+          keyExtractor={(i) => String(i.id)}
           numColumns={2}
           columnWrapperStyle={styles.row}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
           renderItem={({ item }) => <ProductCard product={item} navigation={navigation} />}
+          ListFooterComponent={<Footer navigation={navigation} />}
         />
       )}
 
@@ -111,13 +115,13 @@ export default function ProductsScreen({ navigation }) {
               {/* Categories */}
               <Text style={styles.filterGroupTitle}>Categoria</Text>
               <View style={styles.filterChips}>
-                {categories.map((c) => (
+                {CATEGORY_NAMES.map((nome) => (
                   <TouchableOpacity
-                    key={c.id}
-                    style={[styles.chip, selectedCategories.includes(c.id) && styles.chipActive]}
-                    onPress={() => toggleCategory(c.id)}
+                    key={nome}
+                    style={[styles.chip, selectedCategories.includes(nome) && styles.chipActive]}
+                    onPress={() => toggleCategory(nome)}
                   >
-                    <Text style={[styles.chipText, selectedCategories.includes(c.id) && styles.chipTextActive]}>{c.nome}</Text>
+                    <Text style={[styles.chipText, selectedCategories.includes(nome) && styles.chipTextActive]}>{nome}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -150,7 +154,6 @@ export default function ProductsScreen({ navigation }) {
                 ))}
               </View>
             </ScrollView>
-
             <View style={styles.modalFooter}>
               <TouchableOpacity style={styles.clearBtn} onPress={clearFilters}>
                 <Text style={styles.clearBtnText}>Limpar tudo</Text>
@@ -162,10 +165,12 @@ export default function ProductsScreen({ navigation }) {
           </View>
         </View>
       </Modal>
+
     </View>
+
   );
 }
-
+// style
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
   searchBar: { flexDirection: 'row', alignItems: 'center', padding: 12, gap: 10, backgroundColor: COLORS.white },
@@ -195,7 +200,7 @@ const styles = StyleSheet.create({
   sortPillText: { fontSize: SIZES.sm, color: COLORS.textLight },
   sortPillTextActive: { color: COLORS.white, fontWeight: '700' },
   resultsCount: { fontSize: SIZES.xs, color: COLORS.textMuted, paddingHorizontal: 16, paddingVertical: 8 },
-  list: { paddingHorizontal: 10, paddingBottom: 20 },
+  
   row: { justifyContent: 'center' },
   // Modal
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },

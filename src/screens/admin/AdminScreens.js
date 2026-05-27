@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  ScrollView, TextInput, Modal, Platform, Image,
+  ScrollView, TextInput, Modal, Platform, Image, Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -14,8 +14,8 @@ import { InputField, Button, EmptyState } from '../../components/shared';
 // ADMIN DASHBOARD
 // ──────────────────────────────────────────────────────────────────────────────
 export function AdminDashboardScreen({ navigation }) {
-  const { state, dispatch, showToast } = useApp();
-  const totalRevenue = state.orders.reduce((s, o) => s + o.total, 0);
+  const { state, dispatch, showToast, recarregarTudo } = useApp();
+  const totalRevenue = state.orders.reduce((s, o) => s + Number(o.total || 0), 0);
 
   const stats = [
     { icon: '📦', label: 'Produtos', value: state.products.length, color: COLORS.primary, screen: 'AdminProducts' },
@@ -31,6 +31,7 @@ export function AdminDashboardScreen({ navigation }) {
     { icon: 'grid-outline', label: 'Categorias', sub: 'Gerenciar categorias', screen: 'AdminCategories' },
     { icon: 'star-outline', label: 'Avaliações', sub: 'Moderação de reviews', screen: 'AdminReviews' },
     { icon: 'bar-chart-outline', label: 'Relatório de Vendas', sub: 'Métricas e dados', screen: 'AdminSales' },
+    { icon: 'bug-outline', label: 'Debug do Banco', sub: 'Ver dados salvos no SQLite', screen: 'DatabaseDebug' },
   ];
 
   return (
@@ -44,9 +45,14 @@ export function AdminDashboardScreen({ navigation }) {
             <Text style={styles.adminHeroTitle}>Painel Admin</Text>
             <Text style={styles.adminHeroSub}>Maré Brincadeiras</Text>
           </View>
-          <TouchableOpacity onPress={() => { dispatch({ type: 'LOGOUT' }); navigation.navigate('HomeTab'); }}>
-            <Ionicons name="log-out-outline" size={24} color={COLORS.white} />
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <TouchableOpacity onPress={() => navigation.navigate('DatabaseDebug')}>
+              <Ionicons name="bug-outline" size={24} color={COLORS.white} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => { dispatch({ type: 'LOGOUT' }); navigation.navigate('HomeTab'); }}>
+              <Ionicons name="log-out-outline" size={24} color={COLORS.white} />
+            </TouchableOpacity>
+          </View>
         </View>
         <View style={styles.statsGrid}>
           {stats.map((s) => (
@@ -83,38 +89,54 @@ export function AdminDashboardScreen({ navigation }) {
 // ADMIN PRODUCTS
 // ──────────────────────────────────────────────────────────────────────────────
 export function AdminProductsScreen({ navigation }) {
-  const { state, dispatch, showToast } = useApp();
+  const { state, showToast, dbCreateProduto, dbUpdateProduto, dbDeleteProduto } = useApp();
   const [search, setSearch] = useState('');
   const [modal, setModal] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ name: '', description: '', value: '', oldValue: '', discount: '', quantity: '', image: '', categoryId: '', ageRange: '' });
   const set = (k) => (v) => setForm({ ...form, [k]: v });
 
-  const filtered = state.products.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()));
+  const filtered = state.products.filter((p) => (p.name || '').toLowerCase().includes(search.toLowerCase()));
 
   const openNew = () => { setEditing(null); setForm({ name: '', description: '', value: '', oldValue: '', discount: '', quantity: '', image: '', categoryId: '', ageRange: '' }); setModal(true); };
-  const openEdit = (p) => { setEditing(p); setForm({ ...p, value: String(p.value), oldValue: String(p.oldValue || ''), discount: String(p.discount || ''), quantity: String(p.quantity) }); setModal(true); };
+  const openEdit = (p) => { setEditing(p); setForm({ ...p, value: String(p.value || p.preco || ''), oldValue: String(p.oldValue || p.preco_antigo || ''), discount: String(p.discount || p.desconto || ''), quantity: String(p.quantity || p.estoque || '') }); setModal(true); };
 
-  const save = () => {
+  const save = async () => {
     if (!form.name || !form.value) { showToast('Nome e preço são obrigatórios!', 'warning'); return; }
-    const product = {
-      ...form,
-      id: editing?.id || Date.now().toString(),
-      value: parseFloat(form.value),
-      oldValue: form.oldValue ? parseFloat(form.oldValue) : null,
-      discount: form.discount ? parseInt(form.discount) : null,
-      quantity: parseInt(form.quantity) || 0,
-      images: [form.image],
-      feedbacks: editing?.feedbacks || [],
-    };
-    dispatch({ type: editing ? 'UPDATE_PRODUCT' : 'ADD_PRODUCT', payload: product });
-    showToast(editing ? 'Produto atualizado!' : 'Produto criado!', 'success');
-    setModal(false);
+    setSaving(true);
+    try {
+      const dados = {
+        name: form.name, description: form.description,
+        categoryId: form.categoryId, value: parseFloat(form.value),
+        oldValue: form.oldValue ? parseFloat(form.oldValue) : null,
+        discount: form.discount ? parseInt(form.discount) : 0,
+        quantity: parseInt(form.quantity) || 0,
+        ageRange: form.ageRange, image: form.image,
+      };
+      if (editing) {
+        await dbUpdateProduto(editing.id, dados);
+        showToast('Produto atualizado!', 'success');
+      } else {
+        await dbCreateProduto(dados);
+        showToast('Produto criado!', 'success');
+      }
+      setModal(false);
+    } catch (e) {
+      showToast('Erro ao salvar produto.', 'error');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const deleteProduct = (id) => {
-    dispatch({ type: 'DELETE_PRODUCT', payload: id });
-    showToast('Produto removido.', 'info');
+    Alert.alert('Confirmar Exclusão', 'Deseja excluir este produto?', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Excluir', style: 'destructive', onPress: async () => {
+        await dbDeleteProduto(id);
+        showToast('Produto removido.', 'info');
+      }},
+    ]);
   };
 
   return (
@@ -199,24 +221,49 @@ export function AdminProductsScreen({ navigation }) {
 // ADMIN CUSTOMERS
 // ──────────────────────────────────────────────────────────────────────────────
 export function AdminCustomersScreen({ navigation }) {
-  const { state, dispatch, showToast } = useApp();
+  const { state, showToast, dbUpdateCliente, dbDeleteCliente, dbCreateCliente } = useApp();
   const [search, setSearch] = useState('');
   const [modal, setModal] = useState(false);
   const [editing, setEditing] = useState(null);
-  const [form, setForm] = useState({ name: '', email: '', telephone: '', cpf: '' });
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({ nome: '', email: '', telefone: '', cpf: '', endereco: '', senha: '' });
   const set = (k) => (v) => setForm({ ...form, [k]: v });
 
   const filtered = state.customers.filter(
-    (c) => c.name?.toLowerCase().includes(search.toLowerCase()) || c.email?.toLowerCase().includes(search.toLowerCase())
+    (c) => (c.nome || c.name || '').toLowerCase().includes(search.toLowerCase()) || (c.email || '').toLowerCase().includes(search.toLowerCase())
   );
 
-  const openEdit = (c) => { setEditing(c); setForm({ name: c.name, email: c.email, telephone: c.telephone || '', cpf: c.cpf || '' }); setModal(true); };
-  const save = () => {
-    dispatch({ type: 'UPDATE_CUSTOMER', payload: { ...editing, ...form } });
-    showToast('Cliente atualizado!', 'success');
-    setModal(false);
+  const openNew = () => { setEditing(null); setForm({ nome: '', email: '', telefone: '', cpf: '', endereco: '', senha: '' }); setModal(true); };
+  const openEdit = (c) => { setEditing(c); setForm({ nome: c.nome || c.name || '', email: c.email || '', telefone: c.telefone || c.telephone || '', cpf: c.cpf || '', endereco: c.endereco || '', senha: '' }); setModal(true); };
+
+  const save = async () => {
+    if (!form.nome) { showToast('Nome é obrigatório!', 'warning'); return; }
+    setSaving(true);
+    try {
+      if (editing) {
+        await dbUpdateCliente(editing.id, form.nome, form.cpf, form.telefone, form.email, form.endereco);
+        showToast('Cliente atualizado!', 'success');
+      } else {
+        await dbCreateCliente(form.nome, form.cpf, form.telefone, form.email, form.endereco, form.senha);
+        showToast('Cliente cadastrado!', 'success');
+      }
+      setModal(false);
+    } catch (e) {
+      showToast('Erro ao salvar cliente.', 'error');
+    } finally {
+      setSaving(false);
+    }
   };
-  const deleteCustomer = (id) => { dispatch({ type: 'DELETE_CUSTOMER', payload: id }); showToast('Cliente removido.', 'info'); };
+
+  const deleteCustomer = (id) => {
+    Alert.alert('Confirmar Exclusão', 'Deseja excluir este cliente?', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Excluir', style: 'destructive', onPress: async () => {
+        await dbDeleteCliente(id);
+        showToast('Cliente removido.', 'info');
+      }},
+    ]);
+  };
 
   return (
     <View style={styles.container}>
@@ -233,16 +280,17 @@ export function AdminCustomersScreen({ navigation }) {
       </View>
       <FlatList
         data={filtered}
-        keyExtractor={(i) => i.id}
+        keyExtractor={(i) => String(i.id)}
         contentContainerStyle={{ padding: 12, gap: 10 }}
         renderItem={({ item }) => (
           <View style={styles.customerRow}>
             <View style={styles.customerAvatar}>
-              <Text style={styles.customerAvatarText}>{item.name?.charAt(0).toUpperCase()}</Text>
+              <Text style={styles.customerAvatarText}>{(item.nome || item.name || '?').charAt(0).toUpperCase()}</Text>
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.customerName}>{item.name}</Text>
+              <Text style={styles.customerName}>{item.nome || item.name}</Text>
               <Text style={styles.customerEmail}>{item.email}</Text>
+              {item.telefone ? <Text style={styles.customerEmail}>📞 {item.telefone}</Text> : null}
             </View>
             <View style={styles.rowActions}>
               <TouchableOpacity style={styles.editBtn} onPress={() => openEdit(item)}>
@@ -254,21 +302,26 @@ export function AdminCustomersScreen({ navigation }) {
             </View>
           </View>
         )}
+        ListEmptyComponent={<EmptyState icon="👥" title="Nenhum cliente" subtitle="Adicione o primeiro cliente." />}
       />
       <Modal visible={modal} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
           <View style={styles.modalSheet}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Editar Cliente</Text>
+              <Text style={styles.modalTitle}>{editing ? 'Editar Cliente' : 'Novo Cliente'}</Text>
               <TouchableOpacity onPress={() => setModal(false)}>
                 <Ionicons name="close" size={24} color={COLORS.text} />
               </TouchableOpacity>
             </View>
-            <InputField label="Nome" value={form.name} onChangeText={set('name')} />
-            <InputField label="E-mail" value={form.email} onChangeText={set('email')} keyboardType="email-address" />
-            <InputField label="Telefone" value={form.telephone} onChangeText={set('telephone')} keyboardType="phone-pad" />
-            <InputField label="CPF" value={form.cpf} onChangeText={set('cpf')} keyboardType="numeric" />
-            <Button title="Salvar" onPress={save} style={{ marginTop: 16 }} />
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <InputField label="Nome *" value={form.nome} onChangeText={set('nome')} placeholder="Nome completo" />
+              <InputField label="E-mail" value={form.email} onChangeText={set('email')} keyboardType="email-address" placeholder="email@exemplo.com" />
+              <InputField label="Telefone" value={form.telefone} onChangeText={set('telefone')} keyboardType="phone-pad" placeholder="(00) 00000-0000" />
+              <InputField label="CPF" value={form.cpf} onChangeText={set('cpf')} keyboardType="numeric" placeholder="000.000.000-00" />
+              <InputField label="Endereço" value={form.endereco} onChangeText={set('endereco')} placeholder="Rua, número - Bairro" />
+              {!editing && <InputField label="Senha" value={form.senha} onChangeText={set('senha')} placeholder="Senha de acesso" secureTextEntry />}
+              <Button title={saving ? "Salvando..." : "Salvar"} onPress={save} style={{ marginTop: 16 }} />
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -280,13 +333,12 @@ export function AdminCustomersScreen({ navigation }) {
 // ADMIN ORDERS
 // ──────────────────────────────────────────────────────────────────────────────
 export function AdminOrdersScreen({ navigation }) {
-  const { state, dispatch, showToast } = useApp();
-  const STATUSES = ['Aguardando pagamento', 'Em trânsito', 'Entregue', 'Cancelado'];
+  const { state, dispatch, showToast, dbUpdatePedidoStatus } = useApp();
+  const STATUSES = ['Aguardando pagamento', 'Em trânsito', 'Entregue', 'Cancelado', 'Enviado'];
   const STATUS_COLOR = { 'Entregue': COLORS.success, 'Em trânsito': COLORS.primary, 'Aguardando pagamento': COLORS.warning, 'Cancelado': COLORS.error };
 
-  const updateStatus = (orderId, status) => {
-    const updated = state.orders.map((o) => o.id === orderId ? { ...o, status } : o);
-    dispatch({ type: 'RESTORE_ORDERS', payload: updated });
+  const updateStatus = async (orderId, status) => {
+    await dbUpdatePedidoStatus(orderId, status);
     showToast(`Pedido atualizado para "${status}"!`, 'success');
   };
 
@@ -304,7 +356,7 @@ export function AdminOrdersScreen({ navigation }) {
       ) : (
         <FlatList
           data={state.orders}
-          keyExtractor={(i) => i.id}
+          keyExtractor={(i) => String(i.id)}
           contentContainerStyle={{ padding: 12, gap: 12 }}
           renderItem={({ item }) => (
             <View style={styles.adminOrderCard}>

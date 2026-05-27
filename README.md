@@ -4,8 +4,6 @@ E-commerce de brinquedos convertido de Angular para **React Native + Expo**, com
 
 ---
 
-## 🚀 Como rodar
-
 ### Pré-requisitos
 - Node.js 18+
 - Expo CLI: `npm install -g expo-cli`
