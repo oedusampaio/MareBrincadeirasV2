@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity,
   Image, Dimensions, FlatList, TextInput, Platform,
@@ -53,6 +53,15 @@ export default function HomeScreen({ navigation }) {
 
   const featured = state.products.slice(0, 4);
   const bestsellers = state.products.slice(0, 6);
+
+  const flashProduct = useMemo(() => {
+    if (!state.products.length) return null;
+    return state.products.reduce((max, p) => {
+      const disc = Number(p.discount) || 0;
+      const maxDisc = Number(max?.discount) || 0;
+      return disc > maxDisc ? p : max;
+    }, state.products[0]);
+  }, [state.products]);
 
   const subscribeNewsletter = () => {
     if (!email) { showToast('Informe seu e-mail!', 'warning'); return; }
@@ -111,35 +120,71 @@ export default function HomeScreen({ navigation }) {
           </TouchableOpacity>
         </View>
 
-        {/* Promoção Destaque */}
-        <LinearGradient colors={[COLORS.primary, COLORS.hover]} style={styles.promo}>
-          <View style={styles.promoContent}>
-            <Text style={styles.promoTitle}>Casa de Atividades Montessori</Text>
-            <View style={styles.promoPrice}>
-              <Text style={styles.promoOldPrice}>R$ 299,90</Text>
-              <Text style={styles.promoNewPrice}>R$ 199,90</Text>
+        {/* Oferta Relâmpago */}
+        {flashProduct && (
+          <LinearGradient colors={[COLORS.primary, COLORS.hover]} style={styles.promo}>
+            {/* Badge no topo */}
+            <View style={styles.flashBadge}>
+              <Ionicons name="flash" size={13} color={COLORS.secondary} />
+              <Text style={styles.flashBadgeText}>OFERTA RELÂMPAGO</Text>
             </View>
-            {!finished ? (
-              <View style={styles.countdown}>
-                <CountdownBox value={countdown.days} label="Dias" />
-                <Text style={styles.colon}>:</Text>
-                <CountdownBox value={countdown.hours} label="Horas" />
-                <Text style={styles.colon}>:</Text>
-                <CountdownBox value={countdown.minutes} label="Min" />
-                <Text style={styles.colon}>:</Text>
-                <CountdownBox value={countdown.seconds} label="Seg" />
+
+            {/* Linha principal: conteúdo + imagem */}
+            <View style={styles.promoInner}>
+              <View style={styles.promoContent}>
+                <Text style={styles.promoTitle} numberOfLines={2}>{flashProduct.name}</Text>
+
+                {/* Preços */}
+                <View style={styles.promoPrice}>
+                  {flashProduct.oldValue ? (
+                    <Text style={styles.promoOldPrice}>
+                      R$ {Number(flashProduct.oldValue).toFixed(2).replace('.', ',')}
+                    </Text>
+                  ) : null}
+                  <Text style={styles.promoNewPrice}>
+                    R$ {Number(flashProduct.value || 0).toFixed(2).replace('.', ',')}
+                  </Text>
+                </View>
+                {flashProduct.discount ? (
+                  <View style={styles.promoDiscBadge}>
+                    <Text style={styles.promoDiscText}>-{flashProduct.discount}% OFF</Text>
+                  </View>
+                ) : null}
+
+                {/* Countdown compacto */}
+                {!finished ? (
+                  <View style={styles.countdown}>
+                    <CountdownBox value={countdown.days} label="Dias" />
+                    <Text style={styles.colon}>:</Text>
+                    <CountdownBox value={countdown.hours} label="Hrs" />
+                    <Text style={styles.colon}>:</Text>
+                    <CountdownBox value={countdown.minutes} label="Min" />
+                    <Text style={styles.colon}>:</Text>
+                    <CountdownBox value={countdown.seconds} label="Seg" />
+                  </View>
+                ) : (
+                  <Text style={styles.promoEnd}>Promoção encerrada!</Text>
+                )}
+
+                <TouchableOpacity
+                  style={styles.promoBuyBtn}
+                  onPress={() => navigation.navigate('ProductDetail', { productId: flashProduct.id })}
+                >
+                  <Ionicons name="cart-outline" size={15} color={COLORS.primary} />
+                  <Text style={styles.promoBuyText}>Ver produto</Text>
+                </TouchableOpacity>
               </View>
-            ) : (
-              <Text style={styles.promoEnd}>Promoção encerrada!</Text>
-            )}
-            <TouchableOpacity
-              style={styles.promoBuyBtn}
-              onPress={() => (navigation.getParent() ?? navigation).navigate('Finalizar')}
-            >
-              <Text style={styles.promoBuyText}>Compre agora</Text>
-            </TouchableOpacity>
-          </View>
-        </LinearGradient>
+
+              {/* Imagem do produto */}
+              {flashProduct.image ? (
+                <Image
+                  source={{ uri: flashProduct.image }}
+                  style={styles.promoImg}
+                />
+              ) : null}
+            </View>
+          </LinearGradient>
+        )}
 
         {/* Mais Vendidos */}
         <View style={styles.section}>
@@ -252,26 +297,46 @@ const styles = StyleSheet.create({
     paddingVertical: 14, alignItems: 'center',
   },
   seeAllText: { color: COLORS.white, fontWeight: '700', fontSize: SIZES.base },
-  promo: { margin: 16, borderRadius: SIZES.radius.xl, padding: 24 },
-  promoContent: { gap: 12 },
-  promoTitle: { color: COLORS.white, fontSize: SIZES.xl, fontWeight: '700', lineHeight: 26 },
-  promoPrice: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  promoOldPrice: { color: 'rgba(255,255,255,0.6)', fontSize: SIZES.lg, textDecorationLine: 'line-through' },
-  promoNewPrice: { color: COLORS.discount, fontSize: SIZES.xxl, fontWeight: '800' },
-  countdown: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  countBox: {
-    backgroundColor: COLORS.white, borderRadius: SIZES.radius.md,
-    width: 58, height: 58, alignItems: 'center', justifyContent: 'center',
+  promo: { margin: 16, borderRadius: SIZES.radius.xl, padding: 16, paddingBottom: 20 },
+  flashBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: 'rgba(255,255,255,0.18)', borderRadius: SIZES.radius.full,
+    paddingHorizontal: 10, paddingVertical: 4, alignSelf: 'flex-start', marginBottom: 12,
   },
-  countNum: { fontSize: SIZES.xl, fontWeight: '800', color: COLORS.primary },
-  countLabel: { fontSize: 9, color: COLORS.textMuted, fontWeight: '600' },
-  colon: { color: COLORS.white, fontSize: SIZES.xxl, fontWeight: '800' },
-  promoEnd: { color: COLORS.white, fontSize: SIZES.lg, fontWeight: '700' },
+  flashBadgeText: { color: COLORS.secondary, fontSize: SIZES.xs, fontWeight: '800', letterSpacing: 1 },
+  promoInner: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  promoContent: { flex: 1, gap: 10 },
+  promoImg: {
+    width: 130, height: 130,
+    borderRadius: SIZES.radius.xl,
+    resizeMode: 'cover',
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    flexShrink: 0,
+  },
+  promoTitle: { color: COLORS.white, fontSize: SIZES.base, fontWeight: '700', lineHeight: 22 },
+  promoPrice: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 },
+  promoOldPrice: { color: 'rgba(255,255,255,0.55)', fontSize: SIZES.sm, textDecorationLine: 'line-through' },
+  promoNewPrice: { color: COLORS.secondary, fontSize: SIZES.xl, fontWeight: '800' },
+  promoDiscBadge: {
+    backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: SIZES.radius.sm,
+    paddingHorizontal: 7, paddingVertical: 2,
+  },
+  promoDiscText: { color: COLORS.secondary, fontSize: SIZES.xs, fontWeight: '800' },
+  countdown: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  countBox: {
+    backgroundColor: 'rgba(255,255,255,0.18)', borderRadius: SIZES.radius.sm,
+    width: 42, height: 42, alignItems: 'center', justifyContent: 'center',
+  },
+  countNum: { fontSize: SIZES.md, fontWeight: '800', color: COLORS.white },
+  countLabel: { fontSize: 8, color: 'rgba(255,255,255,0.7)', fontWeight: '600' },
+  colon: { color: COLORS.white, fontSize: SIZES.base, fontWeight: '800' },
+  promoEnd: { color: COLORS.white, fontSize: SIZES.base, fontWeight: '700' },
   promoBuyBtn: {
     backgroundColor: COLORS.white, borderRadius: SIZES.radius.md,
-    paddingVertical: 14, alignItems: 'center',
+    paddingVertical: 10, flexDirection: 'row',
+    alignItems: 'center', justifyContent: 'center', gap: 6,
   },
-  promoBuyText: { color: COLORS.primary, fontWeight: '800', fontSize: SIZES.base },
+  promoBuyText: { color: COLORS.primary, fontWeight: '800', fontSize: SIZES.sm },
   testimonialCard: {
     backgroundColor: COLORS.white, borderRadius: SIZES.radius.lg,
     padding: 16, width: 260, ...SHADOWS.md,

@@ -15,20 +15,14 @@ export function Header({ title, navigation, showBack = false, showCart = true, s
   return (
     <View style={styles.header}>
       <View style={styles.headerLeft}>
-        {showBack ? (
-          // DEPOIS
-          <TouchableOpacity onPress={() => navigation?.navigate('Home')} style={styles.logoContainer}>
-            <Image source={LogoImg} style={styles.logoImg} />
-            <Text style={styles.logoText}>{title ? '' : 'Maré'}</Text>
-            {!title && <Text style={styles.logoSub}> Brincadeiras</Text>}
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity onPress={() => navigation?.navigate('Home')} style={styles.logoContainer}>
-            <Image source={LogoImg} style={styles.logoImg} />
-            <Text style={styles.logoText}>{title ? '' : 'Maré'}</Text>
-            {!title && <Text style={styles.logoSub}> Brincadeiras</Text>}
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity
+          onPress={() => (navigation?.getParent() ?? navigation)?.navigate('HomeTab')}
+          style={styles.logoContainer}
+        >
+          <Image source={LogoImg} style={styles.logoImg} />
+          <Text style={styles.logoText}>{title ? '' : 'Maré'}</Text>
+          {!title && <Text style={styles.logoSub}> Brincadeiras</Text>}
+        </TouchableOpacity>
       </View>
       {title && <Text style={styles.headerTitle}>{title}</Text>}
 
@@ -67,9 +61,14 @@ export function Header({ title, navigation, showBack = false, showCart = true, s
 
 // ─── PRODUCT CARD ───────────────────────────────────────────────────────────────
 export function ProductCard({ product, navigation, compact = false }) {
-  const { dispatch, showToast } = useApp();
+  const { state, dispatch, showToast } = useApp();
 
   const addToCart = () => {
+    if (!state.user) {
+      showToast('Faça login para adicionar ao carrinho!', 'warning');
+      navigation?.navigate('Login');
+      return;
+    }
     dispatch({
       type: 'ADD_TO_CART',
       payload: { productId: product.id, nome: product.name, preco: product.value, imagem: product.image },
@@ -78,6 +77,11 @@ export function ProductCard({ product, navigation, compact = false }) {
   };
 
   const toggleFav = () => {
+    if (!state.user) {
+      showToast('Faça login para favoritar!', 'warning');
+      navigation?.navigate('Login');
+      return;
+    }
     dispatch({ type: 'TOGGLE_FAVORITE', payload: product.id });
   };
 

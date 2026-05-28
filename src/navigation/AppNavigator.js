@@ -24,6 +24,9 @@ import {
   FinalizarScreen,
   PedidosScreen,
   ForgotPasswordScreen,
+  PersonalInfoScreen,
+  EnderecosScreen,
+  CartoesScreen,
 } from '../screens/client/ClientScreens';
 
 // ── Admin Screens
@@ -117,6 +120,9 @@ export default function AppNavigator() {
       <Stack.Screen name="Finalizar" component={FinalizarScreen} />
       <Stack.Screen name="Pedidos" component={PedidosScreen} />
       <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+      <Stack.Screen name="PersonalInfo" component={PersonalInfoScreen} />
+      <Stack.Screen name="Enderecos" component={EnderecosScreen} />
+      <Stack.Screen name="Cartoes" component={CartoesScreen} />
       <Stack.Screen name="QuemSomos" component={QuemSomosScreen} />
       <Stack.Screen name="Contato" component={ContatoScreen} />
       <Stack.Screen name="PoliticaPrivacidade" component={PoliticaPrivacidadeScreen} />

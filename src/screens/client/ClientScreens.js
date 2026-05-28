@@ -1,7 +1,7 @@
 // ──────────────────────────────────────────────────────────────────────────────
 // CARRINHO, FAVORITOS E PERFIL
 // ──────────────────────────────────────────────────────────────────────────────
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity, Image, Platform, ScrollView,
   TextInput, Modal, ActivityIndicator,
@@ -236,7 +236,7 @@ export function CadastroScreen({ navigation }) {
 // PERFIL
 // ──────────────────────────────────────────────────────────────────────────────
 export function PerfilScreen({ navigation }) {
-  const { state, dispatch, showToast } = useApp();
+  const { state, dispatch, showToast, dbUpdateProfilePhoto } = useApp();
 
   if (!state.user) {
     return (
@@ -247,13 +247,37 @@ export function PerfilScreen({ navigation }) {
     );
   }
 
+  const handlePickPhoto = async () => {
+    try {
+      const ImagePicker = require('expo-image-picker');
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        showToast('Permissão para galeria negada.', 'error');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+      if (!result.canceled && result.assets?.[0]?.uri) {
+        await dbUpdateProfilePhoto(result.assets[0].uri);
+        showToast('Foto atualizada!', 'success');
+      }
+    } catch (e) {
+      showToast('Instale expo-image-picker para usar esta função.', 'warning');
+    }
+  };
+
+  const displayName = state.user.nome || state.user.name || 'Usuário';
+
   const menuItems = [
     { icon: 'receipt-outline', label: 'Meus Pedidos', onPress: () => navigation.navigate('Pedidos') },
     { icon: 'heart-outline', label: 'Favoritos', onPress: () => navigation.navigate('FavoritosTab') },
     { icon: 'location-outline', label: 'Endereços', onPress: () => navigation.navigate('Enderecos') },
     { icon: 'card-outline', label: 'Cartões', onPress: () => navigation.navigate('Cartoes') },
     { icon: 'person-outline', label: 'Informações pessoais', onPress: () => navigation.navigate('PersonalInfo') },
-    { icon: 'lock-closed-outline', label: 'Alterar senha', onPress: () => {} },
     ...(state.isAdmin ? [{ icon: 'settings-outline', label: 'Painel Admin', onPress: () => navigation.navigate('AdminDashboard') }] : []),
   ];
 
@@ -267,10 +291,19 @@ export function PerfilScreen({ navigation }) {
     <View style={styles.container}>
       <Header navigation={navigation} title="Perfil" />
       <LinearGradient colors={[COLORS.secondary, '#FFD55E']} style={styles.profileHero}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{state.user.name?.charAt(0).toUpperCase()}</Text>
-        </View>
-        <Text style={styles.profileName}>{state.user.name}</Text>
+        <TouchableOpacity style={styles.avatarWrap} onPress={handlePickPhoto}>
+          {state.profilePhoto ? (
+            <Image source={{ uri: state.profilePhoto }} style={styles.avatarPhoto} />
+          ) : (
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>{displayName.charAt(0).toUpperCase()}</Text>
+            </View>
+          )}
+          <View style={styles.avatarEditBtn}>
+            <Ionicons name="camera" size={14} color={COLORS.white} />
+          </View>
+        </TouchableOpacity>
+        <Text style={styles.profileName}>{displayName}</Text>
         <Text style={styles.profileEmail}>{state.user.email}</Text>
         {state.isAdmin && (
           <View style={styles.adminBadge}><Text style={styles.adminBadgeText}>👑 Administrador</Text></View>
@@ -907,10 +940,32 @@ function PayInput({ label, value, onChangeText, placeholder, keyboardType, maxLe
 // PEDIDOS
 // ──────────────────────────────────────────────────────────────────────────────
 export function PedidosScreen({ navigation }) {
-  const { state } = useApp();
-  const myOrders = state.orders.filter((o) => !state.isAdmin && o.customerId === state.user?.id);
+  const { state, dbGetMeusPedidos } = useApp();
+  const [myOrders, setMyOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const STATUS_COLOR = { 'Entregue': COLORS.success, 'Em trânsito': COLORS.primary, 'Pagamento confirmado': COLORS.success, 'Aguardando pagamento': COLORS.warning, 'Cancelado': COLORS.error };
+  useEffect(() => {
+    const load = async () => {
+      try {
+        if (state.user?.id) {
+          const data = await dbGetMeusPedidos(state.user.id);
+          setMyOrders(data);
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, [state.user?.id]);
+
+  const STATUS_COLOR = {
+    'Entregue': COLORS.success,
+    'Em trânsito': COLORS.primary,
+    'Enviado': COLORS.primary,
+    'Pagamento confirmado': COLORS.success,
+    'Aguardando pagamento': COLORS.warning,
+    'Cancelado': COLORS.error,
+  };
 
   return (
     <View style={styles.container}>
@@ -920,33 +975,380 @@ export function PedidosScreen({ navigation }) {
         </TouchableOpacity>
         <Text style={styles.formHeaderTitle}>Meus Pedidos</Text>
       </View>
-      {myOrders.length === 0 ? (
-        <EmptyState icon="📦" title="Sem pedidos ainda" subtitle="Seus pedidos aparecerão aqui." action={{ label: 'Ver produtos', onPress: () => navigation.navigate('ProductsTab') }} />
+      {loading ? (
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator size="large" color={COLORS.primary} />
+        </View>
+      ) : myOrders.length === 0 ? (
+        <EmptyState
+          icon="📦"
+          title="Sem pedidos ainda"
+          subtitle="Seus pedidos aparecerão aqui após a primeira compra."
+          action={{ label: 'Ver produtos', onPress: () => navigation.navigate('ProductsTab') }}
+        />
       ) : (
         <FlatList
           data={myOrders}
-          keyExtractor={(i) => i.id}
+          keyExtractor={(i) => String(i.id)}
           contentContainerStyle={{ padding: 16, gap: 12 }}
-          renderItem={({ item }) => (
-            <View style={styles.orderCard}>
-              <View style={styles.orderCardHeader}>
-                <Text style={styles.orderId}>{item.id}</Text>
-                <View style={[styles.statusBadge, { backgroundColor: `${STATUS_COLOR[item.status]}20` }]}>
-                  <Text style={[styles.statusText, { color: STATUS_COLOR[item.status] }]}>{item.status}</Text>
+          renderItem={({ item }) => {
+            const statusColor = STATUS_COLOR[item.status] || COLORS.textMuted;
+            return (
+              <View style={styles.orderCard}>
+                <View style={styles.orderCardHeader}>
+                  <Text style={styles.orderId}>Pedido #{item.id}</Text>
+                  <View style={[styles.statusBadge, { backgroundColor: `${statusColor}20` }]}>
+                    <Text style={[styles.statusText, { color: statusColor }]}>{item.status}</Text>
+                  </View>
                 </View>
-              </View>
-              <Text style={styles.orderDate}>{new Date(item.date).toLocaleDateString('pt-BR')}</Text>
-              {item.paymentMethod && (
-                <Text style={styles.orderPayMethod}>
-                  <Ionicons name="card-outline" size={12} /> {item.paymentMethod}
+                <Text style={styles.orderDate}>
+                  {item.data ? new Date(item.data).toLocaleDateString('pt-BR') : 'Data não disponível'}
                 </Text>
-              )}
-              {item.items.map((i) => <Text key={i.productId} style={styles.orderItemText}>• {i.name} x{i.qty}</Text>)}
-              <Text style={styles.orderTotalBold}>Total: R$ {item.total.toFixed(2).replace('.', ',')}</Text>
-            </View>
-          )}
+                {item.forma_pagamento ? (
+                  <Text style={styles.orderPayMethod}>💳 {item.forma_pagamento}</Text>
+                ) : null}
+                {item.itens?.length > 0 && (
+                  <View style={{ marginTop: 6 }}>
+                    {item.itens.map((i) => (
+                      <Text key={i.id} style={styles.orderItemText}>
+                        • {i.nome_produto} x{i.quantidade}
+                      </Text>
+                    ))}
+                  </View>
+                )}
+                <Text style={styles.orderTotalBold}>
+                  Total: R$ {Number(item.total).toFixed(2).replace('.', ',')}
+                </Text>
+              </View>
+            );
+          }}
         />
       )}
+    </View>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// INFORMAÇÕES PESSOAIS
+// ──────────────────────────────────────────────────────────────────────────────
+export function PersonalInfoScreen({ navigation }) {
+  const { state, showToast, dbUpdateCliente } = useApp();
+  const user = state.user || {};
+  const [form, setForm] = useState({
+    nome: user.nome || user.name || '',
+    email: user.email || '',
+    telefone: user.telefone || '',
+    cpf: user.cpf || '',
+  });
+  const [saving, setSaving] = useState(false);
+  const set = (key) => (val) => setForm((prev) => ({ ...prev, [key]: val }));
+
+  const handleSave = async () => {
+    if (!form.nome.trim()) { showToast('Nome é obrigatório!', 'warning'); return; }
+    setSaving(true);
+    try {
+      await dbUpdateCliente(user.id, form.nome, form.cpf, form.telefone, form.email, user.endereco || '');
+      showToast('Informações atualizadas!', 'success');
+      navigation.goBack();
+    } catch (e) {
+      showToast('Erro ao salvar. Tente novamente.', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.formHeader}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtnHeader}>
+          <Ionicons name="arrow-back" size={24} color={COLORS.text} />
+        </TouchableOpacity>
+        <Text style={styles.formHeaderTitle}>Informações Pessoais</Text>
+      </View>
+      <ScrollView contentContainerStyle={styles.loginForm} keyboardShouldPersistTaps="handled">
+        <InputField label="Nome completo *" value={form.nome} onChangeText={set('nome')} placeholder="Seu nome" />
+        <InputField label="E-mail" value={form.email} onChangeText={set('email')} placeholder="seu@email.com" keyboardType="email-address" />
+        <InputField label="Telefone" value={form.telefone} onChangeText={set('telefone')} placeholder="(11) 99999-9999" keyboardType="phone-pad" />
+        <InputField label="CPF" value={form.cpf} onChangeText={set('cpf')} placeholder="000.000.000-00" keyboardType="numeric" />
+        <Button title="Salvar alterações" onPress={handleSave} loading={saving} style={{ marginTop: 8 }} />
+      </ScrollView>
+    </View>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// ENDEREÇOS
+// ──────────────────────────────────────────────────────────────────────────────
+export function EnderecosScreen({ navigation }) {
+  const { state, showToast, dbGetEnderecos, dbCreateEndereco, dbDeleteEndereco, dbSetEnderecoPrincipal } = useApp();
+  const [enderecos, setEnderecos] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [cepLoading, setCepLoading] = useState(false);
+  const [form, setForm] = useState({ cep: '', rua: '', numero: '', complemento: '', bairro: '', cidade: '', estado: '' });
+  const setF = (key) => (val) => setForm((prev) => ({ ...prev, [key]: val }));
+
+  const load = async () => {
+    if (!state.user?.id) return;
+    const list = await dbGetEnderecos(state.user.id);
+    setEnderecos(list);
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); }, [state.user?.id]);
+
+  const buscarCep = async (cep) => {
+    const digits = cep.replace(/\D/g, '').slice(0, 8);
+    const formatted = digits.length > 5 ? digits.slice(0, 5) + '-' + digits.slice(5) : digits;
+    setF('cep')(formatted);
+    if (digits.length === 8) {
+      setCepLoading(true);
+      try {
+        const res = await fetch(`https://viacep.com.br/ws/${digits}/json/`);
+        const data = await res.json();
+        if (!data.erro) {
+          setForm((prev) => ({ ...prev, cep: formatted, rua: data.logradouro || '', bairro: data.bairro || '', cidade: data.localidade || '', estado: data.uf || '' }));
+        } else {
+          showToast('CEP não encontrado.', 'warning');
+        }
+      } catch { showToast('Erro ao buscar CEP.', 'warning'); }
+      finally { setCepLoading(false); }
+    }
+  };
+
+  const handleAdd = async () => {
+    if (!form.rua.trim()) { showToast('Rua é obrigatória!', 'warning'); return; }
+    try {
+      await dbCreateEndereco(state.user.id, form.cep, form.rua, form.numero, form.complemento, form.bairro, form.cidade, form.estado);
+      setForm({ cep: '', rua: '', numero: '', complemento: '', bairro: '', cidade: '', estado: '' });
+      setShowForm(false);
+      showToast('Endereço adicionado!', 'success');
+      await load();
+    } catch (e) { showToast('Erro ao salvar endereço.', 'error'); }
+  };
+
+  const handleDelete = async (id) => {
+    await dbDeleteEndereco(id, state.user.id);
+    showToast('Endereço removido.', 'success');
+    await load();
+  };
+
+  const handleSetPrincipal = async (id) => {
+    await dbSetEnderecoPrincipal(id, state.user.id);
+    await load();
+  };
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.formHeader}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtnHeader}>
+          <Ionicons name="arrow-back" size={24} color={COLORS.text} />
+        </TouchableOpacity>
+        <Text style={styles.formHeaderTitle}>Endereços</Text>
+      </View>
+      <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }} keyboardShouldPersistTaps="handled">
+        {loading ? (
+          <ActivityIndicator color={COLORS.primary} style={{ marginTop: 40 }} />
+        ) : enderecos.length === 0 && !showForm ? (
+          <View style={styles.endEmpty}>
+            <Ionicons name="location-outline" size={48} color={COLORS.textMuted} />
+            <Text style={styles.endEmptyText}>Nenhum endereço cadastrado</Text>
+          </View>
+        ) : (
+          enderecos.map((end) => (
+            <View key={end.id} style={[styles.endCard, end.principal && styles.endCardPrincipal]}>
+              {end.principal ? (
+                <View style={styles.endPrincipalBadge}>
+                  <Text style={styles.endPrincipalText}>Principal</Text>
+                </View>
+              ) : null}
+              <Text style={styles.endRua}>{end.rua}{end.numero ? `, ${end.numero}` : ''}</Text>
+              {end.complemento ? <Text style={styles.endSub}>{end.complemento}</Text> : null}
+              <Text style={styles.endSub}>{[end.bairro, end.cidade, end.estado].filter(Boolean).join(', ')}</Text>
+              {end.cep ? <Text style={styles.endSub}>CEP: {end.cep}</Text> : null}
+              <View style={styles.endActions}>
+                {!end.principal && (
+                  <TouchableOpacity style={styles.endActionBtn} onPress={() => handleSetPrincipal(end.id)}>
+                    <Ionicons name="star-outline" size={16} color={COLORS.primary} />
+                    <Text style={styles.endActionText}>Tornar principal</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity style={[styles.endActionBtn, { marginLeft: 'auto' }]} onPress={() => handleDelete(end.id)}>
+                  <Ionicons name="trash-outline" size={16} color={COLORS.error} />
+                </TouchableOpacity>
+              </View>
+            </View>
+          ))
+        )}
+
+        {showForm ? (
+          <View style={styles.endFormBox}>
+            <Text style={styles.sectionLabel}>Novo endereço</Text>
+            <PayInput label={cepLoading ? 'Buscando CEP...' : 'CEP'} value={form.cep} onChangeText={buscarCep} placeholder="00000-000" keyboardType="numeric" maxLength={9} />
+            <PayInput label="Rua *" value={form.rua} onChangeText={setF('rua')} placeholder="Nome da rua" editable={!cepLoading} />
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              <View style={{ flex: 1 }}><PayInput label="Número" value={form.numero} onChangeText={setF('numero')} placeholder="123" keyboardType="numeric" /></View>
+              <View style={{ flex: 2 }}><PayInput label="Complemento" value={form.complemento} onChangeText={setF('complemento')} placeholder="Apto..." /></View>
+            </View>
+            <PayInput label="Bairro" value={form.bairro} onChangeText={setF('bairro')} placeholder="Bairro" editable={!cepLoading} />
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              <View style={{ flex: 2 }}><PayInput label="Cidade" value={form.cidade} onChangeText={setF('cidade')} placeholder="Cidade" editable={!cepLoading} /></View>
+              <View style={{ flex: 1 }}><PayInput label="Estado" value={form.estado} onChangeText={setF('estado')} placeholder="SP" editable={!cepLoading} /></View>
+            </View>
+            <View style={{ flexDirection: 'row', gap: 12, marginTop: 4 }}>
+              <TouchableOpacity style={[styles.endBtn, { flex: 1, backgroundColor: COLORS.border }]} onPress={() => setShowForm(false)}>
+                <Text style={{ color: COLORS.text, fontWeight: '700' }}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.endBtn, { flex: 2 }]} onPress={handleAdd}>
+                <Text style={styles.endBtnText}>Salvar endereço</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : (
+          <TouchableOpacity style={styles.addEndBtn} onPress={() => setShowForm(true)}>
+            <Ionicons name="add-circle-outline" size={22} color={COLORS.primary} />
+            <Text style={styles.addEndBtnText}>Adicionar endereço</Text>
+          </TouchableOpacity>
+        )}
+      </ScrollView>
+    </View>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// CARTÕES
+// ──────────────────────────────────────────────────────────────────────────────
+const CARD_BRANDS = [
+  { id: 'visa', label: 'Visa', color: '#1A1F71' },
+  { id: 'mastercard', label: 'Mastercard', color: '#EB001B' },
+  { id: 'elo', label: 'Elo', color: '#FFD700' },
+  { id: 'amex', label: 'Amex', color: '#2E77BC' },
+];
+
+export function CartoesScreen({ navigation }) {
+  const { state, showToast, dbSaveCards } = useApp();
+  const [cards, setCards] = useState(state.cards || []);
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({ number: '', name: '', expiry: '', brand: 'visa' });
+  const setF = (key) => (val) => setForm((prev) => ({ ...prev, [key]: val }));
+
+  const handleAdd = async () => {
+    const cleaned = form.number.replace(/\s/g, '');
+    if (cleaned.length < 16) { showToast('Número do cartão inválido!', 'error'); return; }
+    if (!form.name.trim()) { showToast('Informe o nome do titular!', 'error'); return; }
+    if (form.expiry.length < 5) { showToast('Validade inválida!', 'error'); return; }
+
+    const newCard = {
+      id: Date.now().toString(),
+      brand: form.brand,
+      lastFour: cleaned.slice(-4),
+      name: form.name.trim().toUpperCase(),
+      expiry: form.expiry,
+    };
+    const updated = [...cards, newCard];
+    setCards(updated);
+    await dbSaveCards(updated);
+    setForm({ number: '', name: '', expiry: '', brand: 'visa' });
+    setShowForm(false);
+    showToast('Cartão adicionado!', 'success');
+  };
+
+  const handleDelete = async (id) => {
+    const updated = cards.filter((c) => c.id !== id);
+    setCards(updated);
+    await dbSaveCards(updated);
+    showToast('Cartão removido.', 'success');
+  };
+
+  const brandColor = CARD_BRANDS.find((b) => b.id === form.brand)?.color || '#3A86FF';
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.formHeader}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtnHeader}>
+          <Ionicons name="arrow-back" size={24} color={COLORS.text} />
+        </TouchableOpacity>
+        <Text style={styles.formHeaderTitle}>Meus Cartões</Text>
+      </View>
+      <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }} keyboardShouldPersistTaps="handled">
+        {cards.length === 0 && !showForm ? (
+          <View style={styles.endEmpty}>
+            <Ionicons name="card-outline" size={48} color={COLORS.textMuted} />
+            <Text style={styles.endEmptyText}>Nenhum cartão cadastrado</Text>
+          </View>
+        ) : (
+          cards.map((card) => {
+            const brand = CARD_BRANDS.find((b) => b.id === card.brand);
+            return (
+              <View key={card.id} style={[styles.savedCard, { borderLeftColor: brand?.color || COLORS.primary }]}>
+                <View style={styles.savedCardInfo}>
+                  <Text style={styles.savedCardBrand}>{brand?.label || 'Cartão'}</Text>
+                  <Text style={styles.savedCardNumber}>•••• •••• •••• {card.lastFour}</Text>
+                  <Text style={styles.savedCardName}>{card.name}</Text>
+                  <Text style={styles.savedCardExpiry}>Validade: {card.expiry}</Text>
+                </View>
+                <TouchableOpacity onPress={() => handleDelete(card.id)} style={{ padding: 8 }}>
+                  <Ionicons name="trash-outline" size={20} color={COLORS.error} />
+                </TouchableOpacity>
+              </View>
+            );
+          })
+        )}
+
+        {showForm ? (
+          <View style={styles.endFormBox}>
+            <Text style={styles.sectionLabel}>Novo cartão</Text>
+            <Text style={styles.payInputLabel}>Bandeira</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
+              {CARD_BRANDS.map((b) => (
+                <TouchableOpacity
+                  key={b.id}
+                  style={[styles.brandChip, form.brand === b.id && { backgroundColor: b.color }]}
+                  onPress={() => setF('brand')(b.id)}
+                >
+                  <Text style={[styles.brandChipText, form.brand === b.id && { color: '#fff' }]}>{b.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <PayInput
+              label="Número do cartão"
+              value={form.number}
+              onChangeText={(v) => setF('number')(formatCardNumber(v))}
+              placeholder="0000 0000 0000 0000"
+              keyboardType="numeric"
+              maxLength={19}
+            />
+            <PayInput
+              label="Nome do titular"
+              value={form.name}
+              onChangeText={setF('name')}
+              placeholder="Como está no cartão"
+              autoCapitalize="characters"
+            />
+            <PayInput
+              label="Validade (MM/AA)"
+              value={form.expiry}
+              onChangeText={(v) => setF('expiry')(formatExpiry(v))}
+              placeholder="MM/AA"
+              keyboardType="numeric"
+              maxLength={5}
+            />
+            <View style={{ flexDirection: 'row', gap: 12, marginTop: 4 }}>
+              <TouchableOpacity style={[styles.endBtn, { flex: 1, backgroundColor: COLORS.border }]} onPress={() => setShowForm(false)}>
+                <Text style={{ color: COLORS.text, fontWeight: '700' }}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.endBtn, { flex: 2 }]} onPress={handleAdd}>
+                <Text style={styles.endBtnText}>Salvar cartão</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : (
+          <TouchableOpacity style={styles.addEndBtn} onPress={() => setShowForm(true)}>
+            <Ionicons name="add-circle-outline" size={22} color={COLORS.primary} />
+            <Text style={styles.addEndBtnText}>Adicionar cartão</Text>
+          </TouchableOpacity>
+        )}
+      </ScrollView>
     </View>
   );
 }
@@ -1034,15 +1436,74 @@ const styles = StyleSheet.create({
 
   // Profile
   profileHero: { padding: 24, alignItems: 'center', gap: 6 },
+  avatarWrap: { position: 'relative', marginBottom: 4 },
   avatar: {
-    width: 64, height: 64, borderRadius: 32,
-    backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center', marginBottom: 4,
+    width: 80, height: 80, borderRadius: 40,
+    backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center',
   },
+  avatarPhoto: { width: 80, height: 80, borderRadius: 40, resizeMode: 'cover' },
   avatarText: { fontSize: SIZES.xxl, fontWeight: '800', color: COLORS.white },
+  avatarEditBtn: {
+    position: 'absolute', bottom: 0, right: 0,
+    width: 26, height: 26, borderRadius: 13,
+    backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center',
+    borderWidth: 2, borderColor: COLORS.white,
+  },
   profileName: { fontSize: SIZES.xl, fontWeight: '800', color: COLORS.primary },
   profileEmail: { fontSize: SIZES.sm, color: COLORS.textLight },
   adminBadge: { backgroundColor: COLORS.primary, borderRadius: SIZES.radius.full, paddingHorizontal: 14, paddingVertical: 4 },
   adminBadgeText: { color: COLORS.white, fontSize: SIZES.xs, fontWeight: '700' },
+
+  // Endereços
+  endEmpty: { alignItems: 'center', justifyContent: 'center', paddingVertical: 40, gap: 12 },
+  endEmptyText: { fontSize: SIZES.base, color: COLORS.textMuted, fontWeight: '500' },
+  endCard: {
+    backgroundColor: COLORS.white, borderRadius: SIZES.radius.lg,
+    padding: 16, ...SHADOWS.sm, borderLeftWidth: 4, borderLeftColor: COLORS.border,
+  },
+  endCardPrincipal: { borderLeftColor: COLORS.primary },
+  endPrincipalBadge: {
+    backgroundColor: `${COLORS.primary}15`, borderRadius: SIZES.radius.full,
+    paddingHorizontal: 10, paddingVertical: 3, alignSelf: 'flex-start', marginBottom: 6,
+  },
+  endPrincipalText: { fontSize: SIZES.xs, color: COLORS.primary, fontWeight: '700' },
+  endRua: { fontSize: SIZES.base, fontWeight: '700', color: COLORS.text, marginBottom: 2 },
+  endSub: { fontSize: SIZES.sm, color: COLORS.textLight, marginBottom: 1 },
+  endActions: { flexDirection: 'row', alignItems: 'center', marginTop: 10, gap: 8 },
+  endActionBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, padding: 4 },
+  endActionText: { fontSize: SIZES.sm, color: COLORS.primary, fontWeight: '600' },
+  endFormBox: {
+    backgroundColor: COLORS.background, borderRadius: SIZES.radius.lg,
+    padding: 16, ...SHADOWS.sm,
+  },
+  endBtn: {
+    backgroundColor: COLORS.primary, borderRadius: SIZES.radius.md,
+    paddingVertical: 13, alignItems: 'center', justifyContent: 'center',
+  },
+  endBtnText: { color: COLORS.white, fontWeight: '700', fontSize: SIZES.base },
+  addEndBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    borderWidth: 1.5, borderColor: COLORS.primary, borderStyle: 'dashed',
+    borderRadius: SIZES.radius.lg, padding: 16, justifyContent: 'center',
+  },
+  addEndBtnText: { color: COLORS.primary, fontWeight: '700', fontSize: SIZES.base },
+
+  // Cartões
+  savedCard: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: COLORS.white, borderRadius: SIZES.radius.lg,
+    padding: 16, ...SHADOWS.sm, borderLeftWidth: 4,
+  },
+  savedCardInfo: { flex: 1 },
+  savedCardBrand: { fontSize: SIZES.sm, fontWeight: '700', color: COLORS.text, marginBottom: 2 },
+  savedCardNumber: { fontSize: SIZES.base, fontWeight: '700', color: COLORS.text, letterSpacing: 2, marginBottom: 2 },
+  savedCardName: { fontSize: SIZES.sm, color: COLORS.textLight, marginBottom: 1 },
+  savedCardExpiry: { fontSize: SIZES.xs, color: COLORS.textMuted },
+  brandChip: {
+    borderWidth: 1.5, borderColor: COLORS.border, borderRadius: SIZES.radius.md,
+    paddingHorizontal: 16, paddingVertical: 8, marginRight: 10,
+  },
+  brandChipText: { fontSize: SIZES.sm, fontWeight: '600', color: COLORS.text },
   menuItem: {
     flexDirection: 'row', alignItems: 'center', gap: 14,
     paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: COLORS.border,

@@ -14,6 +14,12 @@ import {
   createPedido,
   updatePedidoStatus,
   getClienteByEmail,
+  getEnderecosByCliente,
+  createEndereco,
+  updateEndereco,
+  deleteEndereco,
+  setEnderecoPrincipal,
+  getPedidosComItensByCliente,
 } from '../services/database';
 
 const AppContext = createContext();
@@ -28,6 +34,9 @@ const initialState = {
   orders: [],
   toast: null,
   dbReady: false,
+  profilePhoto: null,
+  enderecos: [],
+  cards: [],
 };
 
 function reducer(state, action) {
@@ -89,6 +98,14 @@ function reducer(state, action) {
       return { ...state, toast: action.payload };
     case 'HIDE_TOAST':
       return { ...state, toast: null };
+    case 'SET_PROFILE_PHOTO':
+      return { ...state, profilePhoto: action.payload };
+    case 'UPDATE_USER':
+      return { ...state, user: state.user ? { ...state.user, ...action.payload } : state.user };
+    case 'SET_ENDERECOS':
+      return { ...state, enderecos: action.payload };
+    case 'SET_CARDS':
+      return { ...state, cards: action.payload };
     default:
       return state;
   }
@@ -163,8 +180,12 @@ export function AppProvider({ children }) {
       try {
         const cart = await AsyncStorage.getItem('cart');
         const favorites = await AsyncStorage.getItem('favorites');
+        const profilePhoto = await AsyncStorage.getItem('profilePhoto');
+        const cards = await AsyncStorage.getItem('cards');
         if (cart) dispatch({ type: 'RESTORE_CART', payload: JSON.parse(cart) });
         if (favorites) dispatch({ type: 'RESTORE_FAVORITES', payload: JSON.parse(favorites) });
+        if (profilePhoto) dispatch({ type: 'SET_PROFILE_PHOTO', payload: profilePhoto });
+        if (cards) dispatch({ type: 'SET_CARDS', payload: JSON.parse(cards) });
       } catch (e) {}
     })();
   }, []);
@@ -225,7 +246,61 @@ export function AppProvider({ children }) {
 
   const dbUpdateCliente = async (id, nome, cpf, telefone, email, endereco) => {
     await updateCliente(id, nome, cpf, telefone, email, endereco);
+    dispatch({ type: 'UPDATE_USER', payload: { nome, name: nome, cpf, telefone, email } });
     await recarregarTudo();
+  };
+
+  const dbUpdateProfilePhoto = async (uri) => {
+    await AsyncStorage.setItem('profilePhoto', uri || '');
+    dispatch({ type: 'SET_PROFILE_PHOTO', payload: uri });
+  };
+
+  const dbGetEnderecos = async (clienteId) => {
+    try {
+      const { Platform } = require('react-native');
+      if (Platform.OS === 'web') return [];
+      const list = await getEnderecosByCliente(clienteId);
+      dispatch({ type: 'SET_ENDERECOS', payload: list });
+      return list;
+    } catch (e) {
+      return [];
+    }
+  };
+
+  const dbCreateEndereco = async (clienteId, cep, rua, numero, complemento, bairro, cidade, estado) => {
+    const novo = await createEndereco(clienteId, cep, rua, numero, complemento, bairro, cidade, estado);
+    await dbGetEnderecos(clienteId);
+    return novo;
+  };
+
+  const dbUpdateEndereco = async (id, clienteId, cep, rua, numero, complemento, bairro, cidade, estado) => {
+    await updateEndereco(id, cep, rua, numero, complemento, bairro, cidade, estado);
+    await dbGetEnderecos(clienteId);
+  };
+
+  const dbDeleteEndereco = async (id, clienteId) => {
+    await deleteEndereco(id);
+    await dbGetEnderecos(clienteId);
+  };
+
+  const dbSetEnderecoPrincipal = async (id, clienteId) => {
+    await setEnderecoPrincipal(id, clienteId);
+    await dbGetEnderecos(clienteId);
+  };
+
+  const dbSaveCards = async (cards) => {
+    await AsyncStorage.setItem('cards', JSON.stringify(cards));
+    dispatch({ type: 'SET_CARDS', payload: cards });
+  };
+
+  const dbGetMeusPedidos = async (clienteId) => {
+    try {
+      const { Platform } = require('react-native');
+      if (Platform.OS === 'web') return [];
+      return await getPedidosComItensByCliente(clienteId);
+    } catch (e) {
+      return [];
+    }
   };
 
   const dbDeleteCliente = async (id) => {
@@ -256,6 +331,10 @@ export function AppProvider({ children }) {
       dbCreateProduto, dbUpdateProduto, dbDeleteProduto,
       dbCreateCliente, dbUpdateCliente, dbDeleteCliente,
       dbCreatePedido, dbUpdatePedidoStatus,
+      dbUpdateProfilePhoto,
+      dbGetEnderecos, dbCreateEndereco, dbUpdateEndereco, dbDeleteEndereco, dbSetEnderecoPrincipal,
+      dbSaveCards,
+      dbGetMeusPedidos,
     }}>
       {children}
     </AppContext.Provider>

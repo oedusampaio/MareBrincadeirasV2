@@ -64,6 +64,20 @@ export const initDatabase = async () => {
         FOREIGN KEY (produto_id) REFERENCES produtos(id)
       );
 
+      CREATE TABLE IF NOT EXISTS enderecos (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        cliente_id INTEGER NOT NULL,
+        cep TEXT,
+        rua TEXT NOT NULL,
+        numero TEXT,
+        complemento TEXT,
+        bairro TEXT,
+        cidade TEXT,
+        estado TEXT,
+        principal INTEGER DEFAULT 0,
+        FOREIGN KEY (cliente_id) REFERENCES clientes(id)
+      );
+
       CREATE TABLE IF NOT EXISTS config (
         chave TEXT PRIMARY KEY,
         valor TEXT
@@ -435,6 +449,91 @@ export const updatePedidoStatus = async (id, status) => {
     return result.changes > 0;
   } catch (error) {
     console.error('Erro ao atualizar status:', error);
+    throw error;
+  }
+};
+
+// ─────────────────────────────────────────────
+// ENDEREÇOS
+// ─────────────────────────────────────────────
+
+export const getEnderecosByCliente = async (clienteId) => {
+  try {
+    return await db.getAllAsync('SELECT * FROM enderecos WHERE cliente_id = ? ORDER BY principal DESC, id ASC', [clienteId]);
+  } catch (error) {
+    console.error('Erro ao buscar endereços:', error);
+    throw error;
+  }
+};
+
+export const createEndereco = async (clienteId, cep, rua, numero, complemento, bairro, cidade, estado) => {
+  try {
+    const result = await db.runAsync(
+      'INSERT INTO enderecos (cliente_id, cep, rua, numero, complemento, bairro, cidade, estado) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [clienteId, cep || null, rua, numero || null, complemento || null, bairro || null, cidade || null, estado || null]
+    );
+    return { id: result.lastInsertRowId, clienteId, cep, rua, numero, complemento, bairro, cidade, estado, principal: 0 };
+  } catch (error) {
+    console.error('Erro ao criar endereço:', error);
+    throw error;
+  }
+};
+
+export const updateEndereco = async (id, cep, rua, numero, complemento, bairro, cidade, estado) => {
+  try {
+    const result = await db.runAsync(
+      'UPDATE enderecos SET cep = ?, rua = ?, numero = ?, complemento = ?, bairro = ?, cidade = ?, estado = ? WHERE id = ?',
+      [cep || null, rua, numero || null, complemento || null, bairro || null, cidade || null, estado || null, id]
+    );
+    return result.changes > 0;
+  } catch (error) {
+    console.error('Erro ao atualizar endereço:', error);
+    throw error;
+  }
+};
+
+export const deleteEndereco = async (id) => {
+  try {
+    const result = await db.runAsync('DELETE FROM enderecos WHERE id = ?', [id]);
+    return result.changes > 0;
+  } catch (error) {
+    console.error('Erro ao deletar endereço:', error);
+    throw error;
+  }
+};
+
+export const setEnderecoPrincipal = async (id, clienteId) => {
+  try {
+    await db.runAsync('UPDATE enderecos SET principal = 0 WHERE cliente_id = ?', [clienteId]);
+    await db.runAsync('UPDATE enderecos SET principal = 1 WHERE id = ?', [id]);
+    return true;
+  } catch (error) {
+    console.error('Erro ao definir endereço principal:', error);
+    throw error;
+  }
+};
+
+// ─────────────────────────────────────────────
+// PEDIDOS COM ITENS (por cliente)
+// ─────────────────────────────────────────────
+
+export const getPedidosComItensByCliente = async (clienteId) => {
+  try {
+    const pedidos = await db.getAllAsync(
+      'SELECT * FROM pedidos WHERE cliente_id = ? ORDER BY data DESC',
+      [clienteId]
+    );
+    return await Promise.all(
+      pedidos.map(async (p) => {
+        const itens = await db.getAllAsync(
+          'SELECT * FROM pedido_itens WHERE pedido_id = ?',
+          [p.id]
+        );
+        return { ...p, itens };
+      })
+    );
+  } catch (error) {
+    console.error('Erro ao buscar pedidos com itens:', error);
     throw error;
   }
 };
