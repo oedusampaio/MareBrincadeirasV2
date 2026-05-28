@@ -7,9 +7,12 @@ import {
   TextInput, Modal, ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SIZES, SHADOWS } from '../../utils/theme';
 import { useApp } from '../../context/AppContext';
 import { Header, EmptyState, Button, Footer } from '../../components/shared';
+import { createMercadoPagoPayment } from '../../services/api'
+import { Linking } from 'react-native';
 
 export function CarrinhoScreen({ navigation }) {
   const { state, dispatch, cartSubtotal } = useApp();
@@ -125,7 +128,7 @@ export function FavoritosScreen({ navigation }) {
 // LOGIN
 // ──────────────────────────────────────────────────────────────────────────────
 import { InputField } from '../../components/shared';
-import { LinearGradient } from 'expo-linear-gradient';
+
 
 export function LoginScreen({ navigation }) {
   const { login, showToast } = useApp();
@@ -140,8 +143,7 @@ export function LoginScreen({ navigation }) {
       const result = await login(email, password);
       if (result.success) {
         showToast('Bem-vindo(a) de volta! 👋', 'success');
-        if (result.isAdmin) navigation.navigate('AdminDashboard');
-        else navigation.navigate('HomeTab');
+        if (!result.isAdmin) navigation.navigate('HomeTab');
       } else {
         showToast('E-mail ou senha incorretos.', 'error');
       }
@@ -174,10 +176,6 @@ export function LoginScreen({ navigation }) {
           <TouchableOpacity onPress={() => navigation.navigate('Cadastro')}>
             <Text style={styles.registerLink}>Cadastre-se</Text>
           </TouchableOpacity>
-        </View>
-        <View style={styles.adminHint}>
-          <Ionicons name="information-circle-outline" size={14} color={COLORS.textMuted} />
-          <Text style={styles.adminHintText}>Admin: admin@mare.com / admin123</Text>
         </View>
       </View>
     </View>
@@ -236,7 +234,7 @@ export function CadastroScreen({ navigation }) {
 // PERFIL
 // ──────────────────────────────────────────────────────────────────────────────
 export function PerfilScreen({ navigation }) {
-  const { state, dispatch, showToast, dbUpdateProfilePhoto } = useApp();
+  const { state, dispatch, showToast, dbUpdateProfilePhoto, logout } = useApp();
 
   if (!state.user) {
     return (
@@ -281,8 +279,8 @@ export function PerfilScreen({ navigation }) {
     ...(state.isAdmin ? [{ icon: 'settings-outline', label: 'Painel Admin', onPress: () => navigation.navigate('AdminDashboard') }] : []),
   ];
 
-  const logout = () => {
-    dispatch({ type: 'LOGOUT' });
+  const handleLogout = async () => {
+    await logout();
     showToast('Até logo! 👋', 'success');
     navigation.navigate('HomeTab');
   };
@@ -323,7 +321,7 @@ export function PerfilScreen({ navigation }) {
         )}
         contentContainerStyle={{ paddingBottom: 20 }}
         ListFooterComponent={
-          <TouchableOpacity style={styles.logoutBtn} onPress={logout}>
+          <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
             <Ionicons name="log-out-outline" size={20} color={COLORS.error} />
             <Text style={styles.logoutText}>Sair da conta</Text>
           </TouchableOpacity>
@@ -360,6 +358,8 @@ function maskCardNumber(number) {
 // ──────────────────────────────────────────────────────────────────────────────
 // FINALIZAR COMPRA — FLUXO COMPLETO COM PAGAMENTO MERCADO PAGO
 // ──────────────────────────────────────────────────────────────────────────────
+const INSTALLMENTS = [1, 2, 3, 4, 5, 6, 12];
+
 const PAYMENT_METHODS = [
   {
     id: 'credit',
@@ -395,11 +395,14 @@ const PAYMENT_METHODS = [
   },
 ];
 
-const INSTALLMENTS = [1, 2, 3, 4, 6, 12];
-
 export function FinalizarScreen({ navigation }) {
   const { state, dispatch, showToast, cartSubtotal, dbCreatePedido } = useApp();
-  const [step, setStep] = useState(0); // 0 = resumo, 1 = endereço, 2 = pagamento, 3 = sucesso
+  const [step, setStep] = useState(0);
+
+  const handleMercadoPago = async () => {
+    const data = await createMercadoPagoPayment();
+    await Linking.openURL(data.initPoint);
+  };
 
   // Endereço
   const [address, setAddress] = useState({ cep: '', rua: '', numero: '', complemento: '', bairro: '', cidade: '' });
@@ -488,6 +491,7 @@ export function FinalizarScreen({ navigation }) {
     setProcessing(true);
     try {
       const methodLabel = PAYMENT_METHODS.find((m) => m.id === selectedMethod)?.label || '';
+      const status = selectedMethod === 'boleto' ? 'Aguardando pagamento' : 'Pagamento confirmado';
       const itens = selectedItems.map((i) => ({
         produto_id: i.productId,
         nome_produto: i.nome || i.name || 'Produto',
@@ -501,7 +505,8 @@ export function FinalizarScreen({ navigation }) {
         finalTotal,
         methodLabel,
         itens,
-        selectedMethod === 'boleto' ? 'Aguardando pagamento' : null,
+        null,
+        status,
       );
       dispatch({ type: 'CLEAR_CART' });
       setStep(3);

@@ -36,7 +36,6 @@ import {
   AdminCustomersScreen,
   AdminOrdersScreen,
   AdminCategoriesScreen,
-  AdminReviewsScreen,
   AdminSalesScreen,
 } from '../screens/admin/AdminScreens';
 import DatabaseDebugScreen from '../screens/admin/DatabaseDebugScreen';
@@ -87,7 +86,7 @@ function CustomTabBar({ state, descriptors, navigation }) {
   );
 }
 
-// ─── Bottom Tab Navigator ─────────────────────────────────────────────────────
+// ─── Bottom Tab Navigator (cliente) ──────────────────────────────────────────
 function TabNavigator() {
   return (
     <Tab.Navigator
@@ -103,14 +102,26 @@ function TabNavigator() {
   );
 }
 
-// ─── Root Stack ───────────────────────────────────────────────────────────────
-export default function AppNavigator() {
+// ─── Navigator Admin ─────────────────────────────────────────────────────────
+function AdminNavigator() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
-      {/* Main tabs */}
-      <Stack.Screen name="Main" component={TabNavigator} />
+      <Stack.Screen name="AdminDashboard" component={AdminDashboardScreen} />
+      <Stack.Screen name="AdminProducts" component={AdminProductsScreen} />
+      <Stack.Screen name="AdminCustomers" component={AdminCustomersScreen} />
+      <Stack.Screen name="AdminOrders" component={AdminOrdersScreen} />
+      <Stack.Screen name="AdminCategories" component={AdminCategoriesScreen} />
+      <Stack.Screen name="AdminSales" component={AdminSalesScreen} />
+      <Stack.Screen name="DatabaseDebug" component={DatabaseDebugScreen} />
+    </Stack.Navigator>
+  );
+}
 
-      {/* Client screens (modal-style) */}
+// ─── Navigator Cliente ────────────────────────────────────────────────────────
+function ClientNavigator() {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="Main" component={TabNavigator} />
       <Stack.Screen name="ProductDetail" component={ProductDetailScreen} />
       <Stack.Screen name="Carrinho" component={CarrinhoScreen} />
       <Stack.Screen name="Favoritos" component={FavoritosScreen} />
@@ -126,18 +137,14 @@ export default function AppNavigator() {
       <Stack.Screen name="QuemSomos" component={QuemSomosScreen} />
       <Stack.Screen name="Contato" component={ContatoScreen} />
       <Stack.Screen name="PoliticaPrivacidade" component={PoliticaPrivacidadeScreen} />
-
-      {/* Admin screens */}
-      <Stack.Screen name="AdminDashboard" component={AdminDashboardScreen} />
-      <Stack.Screen name="AdminProducts" component={AdminProductsScreen} />
-      <Stack.Screen name="AdminCustomers" component={AdminCustomersScreen} />
-      <Stack.Screen name="AdminOrders" component={AdminOrdersScreen} />
-      <Stack.Screen name="AdminCategories" component={AdminCategoriesScreen} />
-      <Stack.Screen name="AdminReviews" component={AdminReviewsScreen} />
-      <Stack.Screen name="AdminSales" component={AdminSalesScreen} />
-      <Stack.Screen name="DatabaseDebug" component={DatabaseDebugScreen} />
     </Stack.Navigator>
   );
+}
+
+// ─── Root Navigator ───────────────────────────────────────────────────────────
+export default function AppNavigator() {
+  const { state } = useApp();
+  return state.isAdmin ? <AdminNavigator /> : <ClientNavigator />;
 }
 
 const tabStyles = StyleSheet.create({
@@ -156,9 +163,7 @@ const tabStyles = StyleSheet.create({
     elevation: 8,
   },
   item: { flex: 1, alignItems: 'center', gap: 3 },
-  iconWrap: {
-    padding: 6, borderRadius: 20, position: 'relative',
-  },
+  iconWrap: { padding: 6, borderRadius: 20, position: 'relative' },
   iconActive: { backgroundColor: COLORS.primary },
   badge: {
     position: 'absolute', top: -3, right: -3,

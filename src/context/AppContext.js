@@ -1,5 +1,13 @@
-import React, { createContext, useContext, useReducer, useEffect } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  fetchProducts,
+  fetchCart,
+  addToCart as apiAddToCart,
+  updateCartItem as apiUpdateCartItem,
+  removeFromCart as apiRemoveFromCart,
+  clearCart as apiClearCart,
+} from '../services/api';
 import {
   initDatabase,
   getAllClientes,
@@ -23,6 +31,23 @@ import {
 } from '../services/database';
 
 const AppContext = createContext();
+
+function normalizeBackendProduct(p) {
+  return {
+    id: String(p.id),
+    name: p.name || p.nome,
+    description: p.description || p.descricao,
+    categoryId: p.category || p.categoria,
+    value: (p.priceInCents || p.precoEmCentavos || 0) / 100,
+    oldValue: (p.oldPriceInCents || p.precoAntigoEmCentavos || 0) / 100,
+    discount: p.discount ?? p.desconto ?? 0,
+    quantity: p.stock ?? p.estoque ?? 0,
+    ageRange: p.ageRange || p.faixaEtaria || '',
+    image: p.image || p.imagem || '',
+    isFavorite: false,
+    feedbacks: [],
+  };
+}
 
 const initialState = {
   user: null,
@@ -54,16 +79,23 @@ function reducer(state, action) {
     case 'LOGOUT':
       return { ...state, user: null, isAdmin: false, cart: [], favorites: [] };
     case 'ADD_TO_CART': {
+      const product = state.products.find((p) => p.id === action.payload.productId);
+      const stock = product?.quantity ?? 999;
+      if (stock <= 0) return state;
       const existing = state.cart.find((i) => i.productId === action.payload.productId);
       if (existing) {
+        if (existing.quantidade >= stock) return state;
         return { ...state, cart: state.cart.map((i) => i.productId === action.payload.productId ? { ...i, quantidade: i.quantidade + 1 } : i) };
       }
       return { ...state, cart: [...state.cart, { ...action.payload, quantidade: 1, selecionado: true }] };
     }
     case 'REMOVE_FROM_CART':
       return { ...state, cart: state.cart.filter((i) => i.productId !== action.payload) };
-    case 'UPDATE_CART_QTY':
-      return { ...state, cart: state.cart.map((i) => i.productId === action.payload.productId ? { ...i, quantidade: Math.max(1, i.quantidade + action.payload.delta) } : i) };
+    case 'UPDATE_CART_QTY': {
+      const product = state.products.find((p) => p.id === action.payload.productId);
+      const stock = product?.quantity ?? 999;
+      return { ...state, cart: state.cart.map((i) => i.productId === action.payload.productId ? { ...i, quantidade: Math.min(stock, Math.max(1, i.quantidade + action.payload.delta)) } : i) };
+    }
     case 'TOGGLE_CART_ITEM':
       return { ...state, cart: state.cart.map((i) => i.productId === action.payload ? { ...i, selecionado: !i.selecionado } : i) };
     case 'SELECT_ALL_CART':
@@ -113,19 +145,44 @@ function reducer(state, action) {
 
 export function AppProvider({ children }) {
   const [state, dispatch] = useReducer(reducer, initialState);
+  const cartReady = useRef(false);
 
   useEffect(() => {
     (async () => {
       try {
-        // expo-sqlite só funciona no celular (iOS/Android)
         const { Platform } = require('react-native');
         if (Platform.OS === 'web') {
-          console.warn('SQLite não disponível na web. Dados não serão persistidos.');
+          try {
+            const data = await fetchProducts();
+            dispatch({ type: 'SET_PRODUCTS', payload: data.products.map(normalizeBackendProduct) });
+          } catch (e) {
+            console.warn('[AppContext] Backend indisponível na web:', e.message);
+          }
+          try {
+            const session = await AsyncStorage.getItem('@mare_session');
+            if (session) dispatch({ type: 'LOGIN', payload: JSON.parse(session) });
+          } catch {}
           dispatch({ type: 'SET_DB_READY' });
           return;
         }
         await initDatabase();
         await recarregarTudo();
+        try {
+          const session = await AsyncStorage.getItem('@mare_session');
+          if (session) {
+            const parsed = JSON.parse(session);
+            if (parsed.isAdmin) {
+              dispatch({ type: 'LOGIN', payload: parsed });
+            } else if (parsed.user?.email) {
+              const exists = await getClienteByEmail(parsed.user.email);
+              if (exists) {
+                dispatch({ type: 'LOGIN', payload: { user: exists, isAdmin: false } });
+              } else {
+                await AsyncStorage.removeItem('@mare_session');
+              }
+            }
+          }
+        } catch {}
         dispatch({ type: 'SET_DB_READY' });
       } catch (e) {
         console.error('Erro ao inicializar app:', e);
@@ -141,6 +198,15 @@ export function AppProvider({ children }) {
       getAllPedidos(),
     ]);
     dispatch({ type: 'SET_CUSTOMERS', payload: clientes });
+
+    if (produtos.length === 0) {
+      try {
+        const data = await fetchProducts();
+        dispatch({ type: 'SET_PRODUCTS', payload: data.products.map(normalizeBackendProduct) });
+      } catch (e) {
+        console.warn('[AppContext] Backend indisponível para produtos:', e.message);
+      }
+    } else {
     dispatch({
       type: 'SET_PRODUCTS',
       payload: produtos.map((p) => ({
@@ -159,6 +225,8 @@ export function AppProvider({ children }) {
         feedbacks: [],
       })),
     });
+    }
+
     dispatch({
       type: 'SET_ORDERS',
       payload: pedidos.map((p) => ({
@@ -187,8 +255,23 @@ export function AppProvider({ children }) {
         if (profilePhoto) dispatch({ type: 'SET_PROFILE_PHOTO', payload: profilePhoto });
         if (cards) dispatch({ type: 'SET_CARDS', payload: JSON.parse(cards) });
       } catch (e) {}
+      cartReady.current = true;
     })();
   }, []);
+
+  // Sync carrinho com backend (fire-and-forget)
+  useEffect(() => {
+    if (!cartReady.current) return;
+    const syncCart = async () => {
+      try {
+        await apiClearCart();
+        await Promise.all(
+          state.cart.map((i) => apiAddToCart(Number(i.productId), i.quantidade))
+        );
+      } catch {}
+    };
+    syncCart();
+  }, [state.cart]);
 
   const showToast = (message, type = 'success') => {
     dispatch({ type: 'SHOW_TOAST', payload: { message, type } });
@@ -197,17 +280,27 @@ export function AppProvider({ children }) {
 
   const login = async (email, password) => {
     if (email === 'admin@mare.com' && password === 'admin123') {
-      dispatch({ type: 'LOGIN', payload: { user: { id: 'admin', name: 'Administrador', email }, isAdmin: true } });
+      const payload = { user: { id: 'admin', name: 'Administrador', email }, isAdmin: true };
+      dispatch({ type: 'LOGIN', payload });
+      try { await AsyncStorage.setItem('@mare_session', JSON.stringify(payload)); } catch {}
       return { success: true, isAdmin: true };
     }
     try {
       const cliente = await getClienteByEmail(email);
       if (cliente && cliente.senha === password) {
-        dispatch({ type: 'LOGIN', payload: { user: cliente, isAdmin: false } });
+        const payload = { user: cliente, isAdmin: false };
+        dispatch({ type: 'LOGIN', payload });
+        try { await AsyncStorage.setItem('@mare_session', JSON.stringify(payload)); } catch {}
         return { success: true, isAdmin: false };
       }
     } catch (e) {}
     return { success: false };
+  };
+
+  const logout = async () => {
+    try { await apiClearCart(); } catch {}
+    try { await AsyncStorage.removeItem('@mare_session'); } catch {}
+    dispatch({ type: 'LOGOUT' });
   };
 
   const dbCreateProduto = async (dados) => {
@@ -308,8 +401,8 @@ export function AppProvider({ children }) {
     dispatch({ type: 'DELETE_CUSTOMER', payload: id });
   };
 
-  const dbCreatePedido = async (clienteId, clienteNome, total, formaPagamento, itens, observacao) => {
-    const id = await createPedido(clienteId, clienteNome, total, formaPagamento, itens, observacao);
+  const dbCreatePedido = async (clienteId, clienteNome, total, formaPagamento, itens, observacao, status) => {
+    const id = await createPedido(clienteId, clienteNome, total, formaPagamento, itens, observacao, status);
     await recarregarTudo();
     return id;
   };
@@ -326,7 +419,7 @@ export function AppProvider({ children }) {
 
   return (
     <AppContext.Provider value={{
-      state, dispatch, showToast, login, cartCount, cartSubtotal,
+      state, dispatch, showToast, login, logout, cartCount, cartSubtotal,
       recarregarTudo,
       dbCreateProduto, dbUpdateProduto, dbDeleteProduto,
       dbCreateCliente, dbUpdateCliente, dbDeleteCliente,

@@ -69,6 +69,15 @@ export function ProductCard({ product, navigation, compact = false }) {
       navigation?.navigate('Login');
       return;
     }
+    if ((product.quantity ?? 0) <= 0) {
+      showToast('Produto sem estoque!', 'error');
+      return;
+    }
+    const inCart = state.cart.find((i) => i.productId === product.id);
+    if (inCart && inCart.quantidade >= (product.quantity ?? 999)) {
+      showToast('Quantidade máxima atingida!', 'warning');
+      return;
+    }
     dispatch({
       type: 'ADD_TO_CART',
       payload: { productId: product.id, nome: product.name, preco: product.value, imagem: product.image },

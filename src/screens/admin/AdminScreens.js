@@ -14,7 +14,7 @@ import { InputField, Button, EmptyState } from '../../components/shared';
 // ADMIN DASHBOARD
 // ──────────────────────────────────────────────────────────────────────────────
 export function AdminDashboardScreen({ navigation }) {
-  const { state, dispatch, showToast, recarregarTudo } = useApp();
+  const { state, dispatch, showToast, recarregarTudo, logout } = useApp();
   const totalRevenue = state.orders.reduce((s, o) => s + Number(o.total || 0), 0);
 
   const stats = [
@@ -29,7 +29,6 @@ export function AdminDashboardScreen({ navigation }) {
     { icon: 'people-outline', label: 'Gerenciar Clientes', sub: 'Ver e editar clientes', screen: 'AdminCustomers' },
     { icon: 'receipt-outline', label: 'Pedidos', sub: 'Acompanhe todos os pedidos', screen: 'AdminOrders' },
     { icon: 'grid-outline', label: 'Categorias', sub: 'Gerenciar categorias', screen: 'AdminCategories' },
-    { icon: 'star-outline', label: 'Avaliações', sub: 'Moderação de reviews', screen: 'AdminReviews' },
     { icon: 'bar-chart-outline', label: 'Relatório de Vendas', sub: 'Métricas e dados', screen: 'AdminSales' },
     { icon: 'bug-outline', label: 'Debug do Banco', sub: 'Ver dados salvos no SQLite', screen: 'DatabaseDebug' },
   ];
@@ -49,7 +48,7 @@ export function AdminDashboardScreen({ navigation }) {
             <TouchableOpacity onPress={() => navigation.navigate('DatabaseDebug')}>
               <Ionicons name="bug-outline" size={24} color={COLORS.white} />
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => { dispatch({ type: 'LOGOUT' }); navigation.navigate('HomeTab'); }}>
+            <TouchableOpacity onPress={() => logout()}>
               <Ionicons name="log-out-outline" size={24} color={COLORS.white} />
             </TouchableOpacity>
           </View>

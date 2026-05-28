@@ -95,7 +95,7 @@ export const initDatabase = async () => {
 
 const inserirDadosIniciais = async () => {
   try {
-    const seeded = await db.getFirstAsync("SELECT valor FROM config WHERE chave = 'seeded_v1'");
+    const seeded = await db.getFirstAsync("SELECT valor FROM config WHERE chave = 'seeded_v2'");
     if (seeded) return;
 
     await db.runAsync('DELETE FROM pedido_itens');
@@ -104,16 +104,6 @@ const inserirDadosIniciais = async () => {
     await db.runAsync('DELETE FROM produtos');
     await db.runAsync('DELETE FROM config');
     await db.runAsync("DELETE FROM sqlite_sequence WHERE name IN ('clientes', 'produtos', 'pedidos', 'pedido_itens')");
-
-    // 5 clientes
-    await db.execAsync(`
-      INSERT INTO clientes (nome, cpf, telefone, email, endereco, senha) VALUES
-        ('Ana Clara Rodrigues', '111.222.333-44', '(11) 98888-1234', 'ana.clara@email.com', 'Rua das Flores, 100 - Vila Madalena', 'senha123'),
-        ('Bruno Oliveira',      '222.333.444-55', '(11) 97777-5678', 'bruno.oliveira@email.com', 'Av. Paulista, 500 - Bela Vista', 'senha123'),
-        ('Carla Mendes',        '333.444.555-66', '(21) 96666-9012', 'carla.mendes@email.com', 'Rua do Bosque, 200 - Tijuca', 'senha123'),
-        ('Diego Santos',        '444.555.666-77', '(41) 95555-3456', 'diego.santos@email.com', 'Av. Brasil, 300 - Centro', 'senha123'),
-        ('Elisa Ferreira',      '555.666.777-88', '(31) 94444-7890', 'elisa.ferreira@email.com', 'Rua das Acácias, 50 - Savassi', 'senha123');
-    `);
 
     // 20 produtos
     await db.execAsync(`
@@ -144,94 +134,7 @@ const inserirDadosIniciais = async () => {
         ('Pelúcia Unicórnio Arco-Íris',       'Pelúcia de unicórnio com crina e cauda coloridas. 35cm, super macia e lavável.', 'Pelúcias',          89.90,  109.90, 18, 18, '0+ anos',   'https://images.tcdn.com.br/img/img_prod/460977/pelucia_unicornio_arco_iris_grande_branco_68cm_35885_2_20201211174351.jpg');
     `);
 
-    // 20 pedidos
-    await db.execAsync(`
-      INSERT INTO pedidos (cliente_id, cliente_nome, total, forma_pagamento, status, observacao) VALUES
-        (1, 'Ana Clara Rodrigues',  289.80, 'PIX',              'Entregue',              'Presente de aniversário'),
-        (2, 'Bruno Oliveira',       309.80, 'Cartão de Crédito','Em trânsito',           'Parcelado em 3x'),
-        (3, 'Carla Mendes',         199.90, 'Dinheiro',         'Entregue',              'Retirada na loja'),
-        (4, 'Diego Santos',         499.80, 'Cartão de Débito', 'Entregue',              'Presentes filhos'),
-        (5, 'Elisa Ferreira',       169.80, 'PIX',              'Cancelado',             'Cancelamento solicitado pelo cliente'),
-        (1, 'Ana Clara Rodrigues',  249.90, 'Cartão de Crédito','Entregue',              'Parcelado em 2x'),
-        (2, 'Bruno Oliveira',       149.80, 'PIX',              'Aguardando pagamento',  'Aguardando confirmação'),
-        (3, 'Carla Mendes',         549.80, 'Cartão de Crédito','Em trânsito',           'Parcelado em 4x'),
-        (4, 'Diego Santos',         299.90, 'Dinheiro',         'Entregue',              'Retirada na loja'),
-        (5, 'Elisa Ferreira',       389.80, 'PIX',              'Entregue',              'Entrega expressa'),
-        (1, 'Ana Clara Rodrigues',  89.90,  'Dinheiro',         'Entregue',              'Retirada na loja'),
-        (2, 'Bruno Oliveira',       329.90, 'Cartão de Crédito','Enviado',               'Parcelado em 3x'),
-        (3, 'Carla Mendes',         229.80, 'PIX',              'Entregue',              'Presente de natal'),
-        (4, 'Diego Santos',         179.90, 'Cartão de Débito', 'Em trânsito',           'Entrega programada'),
-        (5, 'Elisa Ferreira',       139.80, 'PIX',              'Entregue',              'Retirada na loja'),
-        (1, 'Ana Clara Rodrigues',  579.80, 'Cartão de Crédito','Entregue',              'Parcelado em 6x'),
-        (2, 'Bruno Oliveira',       109.80, 'Dinheiro',         'Aguardando pagamento',  'Aguardando pagamento PIX'),
-        (3, 'Carla Mendes',         199.90, 'PIX',              'Entregue',              'Presente de dia das crianças'),
-        (4, 'Diego Santos',         439.80, 'Cartão de Crédito','Enviado',               'Parcelado em 4x'),
-        (5, 'Elisa Ferreira',       289.80, 'PIX',              'Entregue',              'Embalagem presente');
-    `);
-
-    // Itens dos pedidos
-    await db.execAsync(`
-      INSERT INTO pedido_itens (pedido_id, produto_id, nome_produto, quantidade, preco_unitario, subtotal) VALUES
-        -- Pedido 1
-        (1,  1, 'Casa de Atividades Montessori',    1, 199.90, 199.90),
-        (1,  2, 'Conjunto de Chocalhos de Madeira', 1, 89.90,  89.90),
-        -- Pedido 2
-        (2,  5, 'Lego Classic Criativo 500pçs',     1, 249.90, 249.90),
-        (2,  6, 'Pelúcia Urso Teddy 40cm',          1, 79.90,  59.90),
-        -- Pedido 3
-        (3,  1, 'Casa de Atividades Montessori',    1, 199.90, 199.90),
-        -- Pedido 4
-        (4,  5, 'Lego Classic Criativo 500pçs',     1, 249.90, 249.90),
-        (4, 10, 'Kit Lego Cidade Policia',           1, 189.90, 189.90),
-        (4,  6, 'Pelúcia Urso Teddy 40cm',          1, 79.90,  79.90),
-        -- Pedido 5
-        (5,  6, 'Pelúcia Urso Teddy 40cm',          1, 79.90,  79.90),
-        (5,  2, 'Conjunto de Chocalhos de Madeira', 1, 89.90,  89.90),
-        -- Pedido 6
-        (6,  5, 'Lego Classic Criativo 500pçs',     1, 249.90, 249.90),
-        -- Pedido 7
-        (7,  3, 'Boneca Barbie Fashionista',        1, 99.90,  99.90),
-        (7,  4, 'Carrinho Hot Wheels Pack 5',       1, 59.90,  49.90),
-        -- Pedido 8
-        (8, 17, 'Lego Technic Caminhão',            1, 329.90, 329.90),
-        (8,  5, 'Lego Classic Criativo 500pçs',     1, 249.90, 219.90),
-        -- Pedido 9
-        (9,  8, 'Boneca Bebê Reborn',               1, 299.90, 299.90),
-        -- Pedido 10
-        (10, 9, 'Carrinho de Controle Remoto',      1, 149.90, 149.90),
-        (10,11, 'Pelúcia Dinossauro Rex',            1, 109.90, 109.90),
-        (10,20, 'Pelúcia Unicórnio Arco-Íris',      1, 89.90,  89.90),
-        -- Pedido 11
-        (11, 2, 'Conjunto de Chocalhos de Madeira', 1, 89.90,  89.90),
-        -- Pedido 12
-        (12,17, 'Lego Technic Caminhão',            1, 329.90, 329.90),
-        -- Pedido 13
-        (13, 7, 'Jogo de Tabuleiro Banco Imobiliário',1, 129.90, 129.90),
-        (13,12, 'Jogo Cara a Cara',                 1, 89.90,  89.90),
-        -- Pedido 14
-        (14,14, 'Kit Ar Livre - Badminton',         1, 99.90,  99.90),
-        (14,18, 'Kit Esporte Aquático',             1, 69.90,  69.90),
-        -- Pedido 15
-        (15,13, 'Cubo Mágico 3x3 Original',         1, 49.90,  49.90),
-        (15,15, 'Massinha de Modelar 12 cores',     1, 39.90,  39.90),
-        (15,12, 'Jogo Cara a Cara',                 1, 89.90,  49.90),
-        -- Pedido 16
-        (16,17, 'Lego Technic Caminhão',            1, 329.90, 329.90),
-        (16, 5, 'Lego Classic Criativo 500pçs',     1, 249.90, 249.90),
-        -- Pedido 17
-        (17, 6, 'Pelúcia Urso Teddy 40cm',          1, 79.90,  79.90),
-        (17,11, 'Pelúcia Dinossauro Rex',            1, 109.90, 29.90),
-        -- Pedido 18
-        (18, 1, 'Casa de Atividades Montessori',    1, 199.90, 199.90),
-        -- Pedido 19
-        (19, 5, 'Lego Classic Criativo 500pçs',     1, 249.90, 249.90),
-        (19,10, 'Kit Lego Cidade Policia',           1, 189.90, 189.90),
-        -- Pedido 20
-        (20, 1, 'Casa de Atividades Montessori',    1, 199.90, 199.90),
-        (20, 2, 'Conjunto de Chocalhos de Madeira', 1, 89.90,  89.90);
-    `);
-
-    await db.runAsync("INSERT INTO config (chave, valor) VALUES ('seeded_v1', '1')");
+    await db.runAsync("INSERT INTO config (chave, valor) VALUES ('seeded_v2', '1')");
     console.log('✅ Dados iniciais inseridos');
   } catch (error) {
     console.error('Erro ao inserir dados iniciais:', error);
@@ -422,11 +325,11 @@ export const getPedidoById = async (id) => {
   }
 };
 
-export const createPedido = async (clienteId, clienteNome, total, formaPagamento, itens, observacao) => {
+export const createPedido = async (clienteId, clienteNome, total, formaPagamento, itens, observacao, status = 'Aguardando pagamento') => {
   try {
     const result = await db.runAsync(
-      'INSERT INTO pedidos (cliente_id, cliente_nome, total, forma_pagamento, observacao) VALUES (?, ?, ?, ?, ?)',
-      [clienteId || null, clienteNome || 'Cliente Anônimo', total, formaPagamento || null, observacao || null]
+      'INSERT INTO pedidos (cliente_id, cliente_nome, total, forma_pagamento, status, observacao) VALUES (?, ?, ?, ?, ?, ?)',
+      [clienteId || null, clienteNome || 'Cliente Anônimo', total, formaPagamento || null, status, observacao || null]
     );
     const pedidoId = result.lastInsertRowId;
 
@@ -434,6 +337,10 @@ export const createPedido = async (clienteId, clienteNome, total, formaPagamento
       await db.runAsync(
         'INSERT INTO pedido_itens (pedido_id, produto_id, nome_produto, quantidade, preco_unitario, subtotal) VALUES (?, ?, ?, ?, ?, ?)',
         [pedidoId, item.produto_id, item.nome_produto, item.quantidade, item.preco_unitario, item.subtotal]
+      );
+      await db.runAsync(
+        'UPDATE produtos SET estoque = MAX(0, estoque - ?) WHERE id = ?',
+        [item.quantidade, item.produto_id]
       );
     }
     return pedidoId;
